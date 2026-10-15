@@ -208,11 +208,19 @@
         </div>
         <div class="bcard" style="border-color:#fecaca;background:#fff8f8">
           <h3 style="color:var(--bad)">⚠ 초기화 (되돌릴 수 없음)</h3>
-          <p class="hint" style="margin:0 0 10px">실행 전에 현재 데이터가 엑셀로 자동 백업됩니다. 확인창에 <b>초기화</b>라고 입력해야 실행됩니다.</p>
+          <p class="hint" style="margin:0 0 10px">버튼을 누르면 아래에 확인칸이 열립니다. <b>초기화</b>라고 입력하고 실행을 눌러야 진행되며, 실행 전에 현재 데이터가 엑셀로 자동 백업됩니다.</p>
           <div class="bar">
             <button class="btn ghost sm" onclick="resetAllPins()">🔑 전체 PIN을 0000으로</button>
             <button class="btn ghost sm" style="color:var(--bad);border-color:#fca5a5" onclick="resetRecords()">🧹 기록만 초기화 (명부 유지)</button>
             <button class="btn bad sm" onclick="resetAll()">💥 전체 초기화 (명부+기록)</button>
+          </div>
+          <div id="dangerBox" style="display:none;margin-top:10px;padding:12px;border:1.5px solid #fca5a5;border-radius:10px;background:#fff">
+            <div id="dangerText" style="font-weight:700;margin-bottom:8px"></div>
+            <div class="bar" style="margin:0">
+              <input type="text" id="dangerInput" placeholder="여기에  초기화  라고 입력" style="width:220px">
+              <button class="btn bad" id="dangerGo" onclick="dangerRun()">실행</button>
+              <button class="btn ghost" onclick="dangerCancel()">취소</button>
+            </div>
           </div>
           <div class="msg" id="rMsg"></div>
         </div>
@@ -575,9 +583,15 @@
     }catch(e){ show('aMsg','err',e.message); }
     $('aBtn').disabled=false;
   }
-  function confirmDanger(title){
-    const v=prompt(title+'\n\n계속하려면 "초기화" 라고 입력하세요.'); 
-    return v!==null && v.trim()==='초기화';
+  let dangerAction=null;
+  function confirmDanger(title, fn){
+    dangerAction=fn; $('dangerText').textContent=title; $('dangerInput').value=''; $('dangerBox').style.display='block'; $('dangerInput').focus();
+  }
+  function dangerCancel(){ dangerAction=null; $('dangerBox').style.display='none'; }
+  async function dangerRun(){
+    if($('dangerInput').value.trim()!=='초기화'){ show('rMsg','err','"초기화" 라고 정확히 입력해야 실행됩니다.'); return; }
+    const fn=dangerAction; dangerCancel(); $('dangerGo').disabled=true;
+    try{ await fn(); } finally { $('dangerGo').disabled=false; }
   }
   async function deleteSub(sid, sub){
     const q=await db.collection(COL).doc(sid).collection(sub).get();
@@ -588,7 +602,7 @@
   async function resetAllPins(){
     hide('rMsg');
     if(!D.students.length){ show('rMsg','err','등록된 학생이 없습니다.'); return; }
-    if(!confirmDanger('학생 '+D.students.length+'명의 PIN을 모두 0000으로 되돌립니다.')) return;
+    confirmDanger('학생 '+D.students.length+'명의 PIN을 모두 0000으로 되돌립니다.', async()=>{
     try{
       for(let i=0;i<D.students.length;i+=400){
         const b=db.batch();
@@ -597,29 +611,47 @@
       }
       show('rMsg','ok',D.students.length+'명의 PIN을 0000으로 초기화했습니다.');
     }catch(e){ show('rMsg','err',e.message); }
+    });
+  }
+  async function deleteByPaths(paths){
+    let n=0;
+    for(let i=0;i<paths.length;i+=400){ const b=db.batch(); paths.slice(i,i+400).forEach(p=>b.delete(db.doc(p))); await b.commit(); n+=Math.min(400,paths.length-i); }
+    return n;
+  }
+  async function wipeRecords(){
+    // 1) 기록 목록에 있는 모든 기록 문서 + 같은 날짜 캡처 문서 (명부에 없는 학생 것도 포함)
+    const recPaths=D.records.map(r=>r.path);
+    const capPaths=D.records.map(r=>r.path.replace('/records/','/captures/'));
+    let n=await deleteByPaths(recPaths);
+    try{ await deleteByPaths(capPaths); }catch(e){ /* 캡처 없는 날짜는 삭제해도 무해 */ }
+    // 2) 명부 학생의 남은 캡처 정리
+    for(const s of D.students){ try{ await deleteSub(s.id,'captures'); }catch(e){} }
+    return n;
   }
   async function resetRecords(){
     hide('rMsg');
     if(!D.records.length){ show('rMsg','err','지울 기록이 없습니다.'); return; }
-    if(!confirmDanger('기록 '+D.records.length+'건과 캡처를 모두 삭제합니다. 명부(학생·PIN)는 그대로 남습니다.')) return;
+    confirmDanger('기록 '+D.records.length+'건과 캡처를 모두 삭제합니다. 명부(학생·PIN)는 그대로 남습니다.', async()=>{
+    show('rMsg','ok','삭제 중… 잠시 기다려 주세요.');
+    try{ exportXlsx(); }catch(e){ console.warn('backup failed',e); }
     try{
-      exportXlsx();
-      let n=0;
-      for(const s of D.students){ n+=await deleteSub(s.id,'records'); await deleteSub(s.id,'captures'); }
+      const n=await wipeRecords();
       show('rMsg','ok','기록 '+n+'건을 삭제했습니다. (백업 엑셀이 내려받아졌습니다)');
-    }catch(e){ show('rMsg','err',e.message); }
+    }catch(e){ show('rMsg','err','삭제 실패: '+(e.code||'')+' '+e.message); console.error(e); }
+    });
   }
   async function resetAll(){
     hide('rMsg');
     if(!D.students.length&&!D.records.length){ show('rMsg','err','지울 데이터가 없습니다.'); return; }
-    if(!confirmDanger('명부 '+D.students.length+'명과 기록 '+D.records.length+'건을 전부 삭제합니다. 새 학기 시작 등 완전히 비울 때만 사용하세요.')) return;
+    confirmDanger('명부 '+D.students.length+'명과 기록 '+D.records.length+'건을 전부 삭제합니다. 새 학기 시작 등 완전히 비울 때만 사용하세요.', async()=>{
+    show('rMsg','ok','삭제 중… 잠시 기다려 주세요.');
+    if(D.records.length){ try{ exportXlsx(); }catch(e){} }
     try{
-      if(D.records.length) exportXlsx();
-      const ids=D.students.map(s=>s.id);
-      for(const id of ids){ await deleteSub(id,'records'); await deleteSub(id,'captures'); }
-      for(let i=0;i<ids.length;i+=400){ const b=db.batch(); ids.slice(i,i+400).forEach(id=>b.delete(db.collection(COL).doc(id))); await b.commit(); }
+      await wipeRecords();
+      await deleteByPaths(D.students.map(s=>COL+'/'+s.id));
       show('rMsg','ok','전체 초기화 완료. 명부 관리에서 새 명단을 올리세요.');
-    }catch(e){ show('rMsg','err',e.message); }
+    }catch(e){ show('rMsg','err','삭제 실패: '+(e.code||'')+' '+e.message); console.error(e); }
+    });
   }
 
   /* ---------- 엑셀 내보내기 ---------- */
