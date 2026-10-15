@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10분 달리기 — 교사용</title>
+<style>
+  :root{--bg:#f4f6fb;--card:#fff;--ink:#1b2130;--sub:#6b7280;--line:#e5e7eb;--pri:#2563eb;--ok:#16a34a;--warn:#d97706;--bad:#dc2626;--soft:#eff6ff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;font-size:14px;line-height:1.45}
+  .wrap{max-width:1180px;margin:0 auto;padding:16px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:4px 0 12px}
+  header h1{font-size:18px;margin:0}
+  header h1 small{font-weight:600;color:var(--sub);font-size:12.5px;margin-left:8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  input,select{padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;background:#fff}
+  input:focus,select:focus{outline:none;border-color:var(--pri)}
+  .btn{padding:9px 14px;border:0;border-radius:9px;background:var(--pri);color:#fff;font-weight:700;cursor:pointer;font-size:13.5px}
+  .btn.ghost{background:#fff;border:1.5px solid var(--line);color:#374151}
+  .btn.ok{background:var(--ok)} .btn.bad{background:var(--bad)} .btn.sm{padding:6px 10px;font-size:12.5px}
+  .btn[disabled]{opacity:.5}
+  .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .tabs button{padding:9px 14px;border:1.5px solid var(--line);background:#fff;border-radius:999px;font-weight:700;cursor:pointer;color:var(--sub);font-size:13.5px}
+  .tabs button.on{background:var(--pri);border-color:var(--pri);color:#fff}
+  .tabs .badge{background:var(--warn);color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;margin-left:6px}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+  .kpi{background:var(--soft);border-radius:12px;padding:12px 14px}
+  .kpi .k{font-size:12px;color:var(--sub);font-weight:600} .kpi .v{font-size:24px;font-weight:800;color:var(--pri)}
+  .tbl{overflow:auto;border:1px solid var(--line);border-radius:10px;max-height:70vh}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:center}
+  th{background:#f8fafc;font-weight:700;position:sticky;top:0;z-index:1}
+  td.l,th.l{text-align:left}
+  th.stick,td.stick{position:sticky;left:0;background:#fff;z-index:2;box-shadow:1px 0 0 var(--line)}
+  th.stick{z-index:3;background:#f8fafc}
+  .c-ok{color:var(--ok);font-weight:700} .c-wait{color:var(--warn);font-weight:700} .c-no{color:var(--bad);font-weight:700} .c-in{color:#6b7280;font-weight:700}
+  .c-miss{color:#d1d5db}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px}
+  .pill.wait{background:#fef3c7;color:var(--warn)} .pill.ok{background:#dcfce7;color:var(--ok)} .pill.no{background:#fee2e2;color:var(--bad)} .pill.in{background:#e5e7eb;color:#374151}
+  .low{background:#fff7ed}
+  .msg{padding:10px 12px;border-radius:9px;margin-top:10px;display:none;font-size:13.5px}
+  .msg.err{display:block;background:#fef2f2;color:var(--bad)} .msg.ok{display:block;background:#f0fdf4;color:var(--ok)}
+  .hint{color:var(--sub);font-size:12.5px}
+  .memo{width:150px;padding:6px 8px;font-size:12.5px}
+  a.cap,button.cap{color:var(--pri);font-weight:700;text-decoration:none;background:none;border:0;cursor:pointer;font-size:13px}
+  .lgn{max-width:420px;margin:60px auto;text-align:center}
+  .lgn .btn{width:100%;padding:13px;font-size:15px;margin-top:10px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--sub);margin:8px 0}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:r .8s linear infinite;vertical-align:-2px;margin-right:5px}
+  @keyframes r{to{transform:rotate(360deg)}}
+  .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:50;align-items:center;justify-content:center;cursor:zoom-out}
+  .lightbox img{max-width:95vw;max-height:92vh;border-radius:10px;background:#fff}
+  .lightbox .lb-cap{position:absolute;top:14px;left:16px;color:#fff;font-weight:700;font-size:15px;text-shadow:0 1px 3px #000}
+  .drop{border:2px dashed #c7d2fe;border-radius:12px;padding:18px;text-align:center;background:#f8faff;position:relative}
+  .drop input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media (max-width:800px){.grid2{grid-template-columns:1fr}}
+  code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card lgn" id="loginCard">
+    <h2 style="margin:0 0 4px;font-size:18px">🏃 전남외국어고등학교 10분 달리기 — 교사용</h2>
+    <p class="hint">등록된 교사 구글 계정으로만 들어올 수 있습니다.</p>
+    <button class="btn" id="loginBtn" onclick="login()">Google 계정으로 로그인</button>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <div id="main" style="display:none">
+    <header>
+      <h1>🏃 전남외국어고등학교 10분 달리기 <small id="todayLbl"></small></h1>
+      <div class="bar" style="margin:0">
+        <select id="clsSel" onchange="renderAll()"></select>
+        <button class="btn ghost" onclick="exportXlsx()">📥 엑셀 내보내기</button>
+        <button class="btn ghost" onclick="logout()" id="meBtn">로그아웃</button>
+      </div>
+    </header>
+
+    <div class="kpis">
+      <div class="kpi"><div class="k">명부 인원</div><div class="v" id="kStudents">0</div></div>
+      <div class="kpi"><div class="k">총 기록 수</div><div class="v" id="kRecords">0</div></div>
+      <div class="kpi"><div class="k">확인 대기</div><div class="v" id="kPending" style="color:var(--warn)">0</div></div>
+      <div class="kpi"><div class="k">5회 이상 참여</div><div class="v" id="kFive" style="color:var(--ok)">0</div></div>
+      <div class="kpi"><div class="k">오늘 미입력</div><div class="v" id="kTodayMiss" style="color:var(--bad)">0</div></div>
+    </div>
+
+    <div class="tabs">
+      <button class="on" id="tab-matrix" onclick="tab('matrix')">📅 참여 현황</button>
+      <button id="tab-pending" onclick="tab('pending')">✅ 기록 확인 <span class="badge" id="pendBadge">0</span></button>
+      <button id="tab-summary" onclick="tab('summary')">📊 학생별 요약</button>
+      <button id="tab-manual" onclick="tab('manual')">✍️ 교사 직접 입력</button>
+      <button id="tab-roster" onclick="tab('roster')">👥 명부 관리</button>
+    </div>
+
+    <div class="card" id="pane-matrix">
+      <div class="legend">
+        <span><b class="c-ok">1850</b> 확인된 실외</span>
+        <span><b class="c-wait">1850?</b> 확인 대기</span>
+        <span><b class="c-in">🏠1200</b> 실내 (참여만 인정)</span>
+        <span><b class="c-no">✗</b> 제외</span>
+        <span><b class="c-miss">·</b> 미입력</span>
+        <span style="margin-left:auto">⚠ 음영 = 참여 5회 미만</span>
+      </div>
+      <div class="tbl" id="matrixBox"></div>
+    </div>
+
+    <div class="card" id="pane-pending" style="display:none">
+      <div class="bar">
+        <span class="hint">캡처를 눌러 대조하세요. 그냥 두어도 참여·베스트에 반영됩니다. 명백한 오류만 '제외' 하세요.</span>
+        <button class="btn ok sm" style="margin-left:auto" onclick="confirmAllShown()">보이는 대기 기록 전부 확인 처리</button>
+      </div>
+      <div class="bar">
+        <label><input type="checkbox" id="onlyPending" checked onchange="renderPending()"> 대기 중만 보기</label>
+        <label><input type="checkbox" id="flagOdd" checked onchange="renderPending()"> 의심 기록 강조 (실외 2,600m 초과 · 캡처 없음)</label>
+      </div>
+      <div class="tbl" id="pendingBox"></div>
+      <div class="msg" id="pendMsg"></div>
+    </div>
+
+    <div class="card" id="pane-summary" style="display:none">
+      <p class="hint" style="margin:0 0 10px">참여횟수 = 제외되지 않은 모든 기록(실내 포함) · 베스트 = 제외되지 않은 <b>실외</b> 기록 중 최대. 점수 산출은 엑셀 내보내기 후 하세요.</p>
+      <div class="tbl" id="summaryBox"></div>
+    </div>
+
+    <div class="card" id="pane-manual" style="display:none">
+      <p class="hint" style="margin:0 0 10px">폰이 없거나 제출을 못 한 학생의 기록을 대신 넣습니다. 같은 날짜 기록이 있으면 덮어씁니다. 상태는 바로 '확인'으로 저장됩니다.</p>
+      <div class="bar">
+        <select id="mStudent"></select>
+        <input type="date" id="mDate">
+        <input type="number" id="mDist" placeholder="거리(m)" style="width:120px">
+        <select id="mPlace"><option>실외</option><option>실내</option></select>
+        <input type="text" id="mMemo" placeholder="메모 (선택)">
+        <button class="btn" id="mBtn" onclick="manualSave()">저장</button>
+      </div>
+      <div class="msg" id="mMsg"></div>
+    </div>
+
+    <div class="card" id="pane-roster" style="display:none">
+      <div class="grid2">
+        <div>
+          <h3 style="margin:0 0 6px;font-size:15px">엑셀로 명부 등록 / 갱신</h3>
+          <p class="hint" style="margin:0 0 8px">첫 행 제목이 <code>학번 이름 학년 반 성별</code> 인 엑셀(.xlsx)을 올리세요. <code>PIN</code> 열은 선택이며 없으면 <b>0000</b>으로 등록되고 학생이 첫 로그인 때 직접 바꿉니다. 이미 있는 학번은 이름만 갱신되고 기록과 학생이 바꾼 PIN은 그대로 유지됩니다.</p>
+          <div class="drop"><input type="file" id="rosterFile" accept=".xlsx,.xls,.csv" onchange="previewRoster(this)"><div><b style="color:var(--pri)">📄 엑셀 파일 선택</b><div class="hint">명부양식.xlsx 참고</div></div></div>
+          <div id="rosterPreview" style="margin-top:10px"></div>
+          <div class="msg" id="rosterMsg"></div>
+        </div>
+        <div>
+          <h3 style="margin:0 0 6px;font-size:15px">등록된 명부 <span class="hint" id="rosterCount"></span></h3>
+          <div class="bar"><input type="text" id="rosterQ" placeholder="이름/학번 검색" oninput="renderRoster()" style="flex:1"></div>
+          <div class="tbl" style="max-height:52vh" id="rosterBox"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="lightbox" id="lb" onclick="this.style.display='none'"><div class="lb-cap" id="lbCap"></div><img id="lbImg" alt="캡처"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+  /* ====== Firebase 설정: index.html 과 동일하게 ====== */
+  const FB_CONFIG = {
+    apiKey: "AIzaSyCt8B1VKA7kOaWhI-K1yy7fYEr0359uO18",
+    authDomain: "pe-team-builder.firebaseapp.com",
+    projectId: "pe-team-builder",
+    messagingSenderId: "400305479648",
+    appId: "1:400305479648:web:8e0d6c0245579cb9f61585"
+  };
+  /* 교사 계정 — firestore.rules 의 isTeacher() 목록과 반드시 같게 */
+  const ADMIN_EMAILS = ['jinjin8519@gmail.com'];
+  const COL = 'run10_students';
+  const DEFAULT_PIN = '0000';   // 엑셀에 PIN이 없으면 이 값으로 등록
+
+  firebase.initializeApp(FB_CONFIG);
+  const auth = firebase.auth(), db = firebase.firestore();
+  const $ = id => document.getElementById(id);
+  let D = { students:[], records:[], dates:[], classes:[] }, unsubS=null, unsubR=null, rosterRows=null;
+  function show(id,cls,t){ const m=$(id); m.className='msg '+cls; m.textContent=t; }
+  function hide(id){ $(id).className='msg'; }
+  function fmt(n){ return Number(n).toLocaleString(); }
+  function todayKST(){ return new Date(Date.now()+9*3600*1000).toISOString().slice(0,10); }
+  async function sha256(s){ const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+  const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  /* ---------- 로그인 ---------- */
+  function login(){
+    hide('loginMsg');
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>show('loginMsg','err',e.message));
+  }
+  function logout(){ auth.signOut().then(()=>location.reload()); }
+  auth.onAuthStateChanged(u=>{
+    if(!u){ $('loginCard').style.display='block'; $('main').style.display='none'; return; }
+    if(!ADMIN_EMAILS.includes(u.email)){ show('loginMsg','err',u.email+' 은(는) 등록된 교사 계정이 아닙니다.'); auth.signOut(); return; }
+    $('loginCard').style.display='none'; $('main').style.display='block';
+    $('meBtn').textContent='로그아웃 ('+u.email.split('@')[0]+')';
+    $('todayLbl').textContent=todayKST();
+    $('mDate').value=todayKST(); $('mDate').max=todayKST();
+    subscribe();
+  });
+
+  function subscribe(){
+    if(unsubS) unsubS(); if(unsubR) unsubR();
+    unsubS = db.collection(COL).onSnapshot(q=>{
+      D.students=[]; q.forEach(d=>D.students.push(Object.assign({id:d.id}, d.data())));
+      D.students.sort((a,b)=>(a.grade+'-'+a.cls+'-'+a.id).localeCompare(b.grade+'-'+b.cls+'-'+b.id));
+      D.classes=[...new Set(D.students.map(s=>s.grade+'-'+s.cls))].sort();
+      initFilters(); renderAll();
+    }, e=>alert('명부 읽기 실패: '+e.message));
+    unsubR = db.collectionGroup('records').onSnapshot(q=>{
+      D.records=[]; q.forEach(d=>D.records.push(Object.assign({path:d.ref.path}, d.data())));
+      D.dates=[...new Set(D.records.map(r=>r.date))].sort();
+      renderAll();
+    }, e=>alert('기록 읽기 실패: '+e.message+'\n(처음이라면 Firestore 색인이 필요할 수 있습니다. 콘솔 메시지의 링크를 눌러 색인을 만드세요.)'));
+  }
+
+  /* ---------- 공통 ---------- */
+  function initFilters(){
+    const sel=$('clsSel'); const cur=sel.value;
+    sel.innerHTML='<option value="">전체 학급</option>'+D.classes.map(c=>'<option value="'+c+'">'+c.replace('-','학년 ')+'반</option>').join('');
+    if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+    $('mStudent').innerHTML=D.students.map(s=>'<option value="'+s.id+'">'+s.grade+'-'+s.cls+' '+s.id+' '+esc(s.name)+'</option>').join('');
+  }
+  function statsFor(recs){
+    const valid=recs.filter(r=>r.status!=='제외'), out=valid.filter(r=>r.place==='실외');
+    let best=null; out.forEach(r=>{ if(!best||r.distance>best.distance) best=r; });
+    return { count:valid.length, outdoor:out.length, indoor:valid.length-out.length, best:best?best.distance:0, bestDate:best?best.date:'', bestPending:best?best.status==='대기':false, pending:recs.filter(r=>r.status==='대기').length, excluded:recs.filter(r=>r.status==='제외').length };
+  }
+  function enrich(){
+    const by={}; D.records.forEach(r=>(by[r.sid]=by[r.sid]||[]).push(r));
+    D.students.forEach(s=>{ s.recs=by[s.id]||[]; s.byDate={}; s.recs.forEach(r=>s.byDate[r.date]=r); s.stats=statsFor(s.recs); });
+  }
+  function filtered(){ const c=$('clsSel').value; return D.students.filter(s=>!c || (s.grade+'-'+s.cls)===c); }
+  function tab(t){ ['matrix','pending','summary','manual','roster'].forEach(x=>{ $('pane-'+x).style.display=x===t?'block':'none'; $('tab-'+x).classList.toggle('on',x===t); }); }
+
+  function renderAll(){
+    enrich();
+    const st=filtered(), today=todayKST();
+    const allRecs=st.flatMap(s=>s.recs);
+    $('kStudents').textContent=st.length; $('kRecords').textContent=allRecs.length;
+    const pend=allRecs.filter(r=>r.status==='대기').length;
+    $('kPending').textContent=pend; $('pendBadge').textContent=pend;
+    $('kFive').textContent=st.filter(s=>s.stats.count>=5).length;
+    $('kTodayMiss').textContent=st.filter(s=>!s.byDate[today]).length;
+    $('rosterCount').textContent='('+D.students.length+'명)';
+    renderMatrix(); renderPending(); renderSummary(); renderRoster();
+  }
+  function cell(r){
+    if(!r) return '<span class="c-miss">·</span>';
+    if(r.status==='제외') return '<span class="c-no" title="'+esc(r.memo)+'">✗</span>';
+    if(r.place==='실내') return '<span class="c-in">🏠'+fmt(r.distance)+(r.status==='대기'?'?':'')+'</span>';
+    return '<span class="'+(r.status==='대기'?'c-wait':'c-ok')+'">'+fmt(r.distance)+(r.status==='대기'?'?':'')+'</span>';
+  }
+  function renderMatrix(){
+    const st=filtered(), dates=D.dates;
+    if(!dates.length){ $('matrixBox').innerHTML='<p class="hint" style="padding:12px">아직 제출된 기록이 없습니다.</p>'; return; }
+    let h='<table><thead><tr><th class="stick l">학생</th><th>참여</th><th>베스트</th>'+dates.map(d=>'<th>'+d.slice(5)+'</th>').join('')+'</tr></thead><tbody>';
+    st.forEach(s=>{ h+='<tr class="'+(s.stats.count<5?'low':'')+'"><td class="stick l">'+s.grade+'-'+s.cls+' '+esc(s.name)+' <span class="hint">'+s.id+'</span></td><td><b>'+s.stats.count+'</b></td><td>'+(s.stats.best?fmt(s.stats.best):'-')+'</td>'+dates.map(d=>'<td>'+cell(s.byDate[d])+'</td>').join('')+'</tr>'; });
+    $('matrixBox').innerHTML=h+'</tbody></table>';
+  }
+  function renderPending(){
+    const onlyP=$('onlyPending').checked, flag=$('flagOdd').checked;
+    let rows=[]; filtered().forEach(s=>s.recs.forEach(r=>{ if(!onlyP||r.status==='대기') rows.push({s,r}); }));
+    rows.sort((a,b)=>a.r.date<b.r.date?1:a.r.date>b.r.date?-1:(a.s.grade+'-'+a.s.cls+a.s.id).localeCompare(b.s.grade+'-'+b.s.cls+b.s.id));
+    if(!rows.length){ $('pendingBox').innerHTML='<p class="hint" style="padding:12px">'+(onlyP?'확인 대기 중인 기록이 없습니다. 👍':'기록이 없습니다.')+'</p>'; return; }
+    let h='<table><thead><tr><th>날짜</th><th class="l">학생</th><th>거리</th><th>장소</th><th>캡처</th><th>제출시각</th><th>상태</th><th>메모</th><th>처리</th></tr></thead><tbody>';
+    rows.forEach(({s,r})=>{
+      const odd = flag && r.place==='실외' && (r.distance>2600 || !r.hasCapture);
+      const k=r.sid+'|'+r.date;
+      const t=r.submittedAt&&r.submittedAt.toDate?r.submittedAt.toDate():null;
+      h+='<tr'+(odd?' style="background:#fff1f2"':'')+'><td>'+r.date+'</td><td class="l">'+s.grade+'-'+s.cls+' '+esc(s.name)+' <span class="hint">'+s.id+'</span></td>'+
+        '<td><b>'+fmt(r.distance)+'</b> m'+(odd?' ⚠':'')+'</td><td>'+(r.place==='실내'?'<span class="pill in">실내</span>':'실외')+'</td>'+
+        '<td>'+(r.hasCapture?'<button class="cap" onclick="viewCapture(\''+r.sid+'\',\''+r.date+'\',\''+esc(s.name)+'\')">보기 🔍</button>':'<span class="c-no">없음</span>')+'</td>'+
+        '<td class="hint">'+(t?t.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'')+'</td>'+
+        '<td><span class="pill '+(r.status==='대기'?'wait':r.status==='확인'?'ok':'no')+'">'+r.status+'</span></td>'+
+        '<td><input class="memo" id="memo-'+k+'" value="'+esc(r.memo)+'" placeholder="메모"></td>'+
+        '<td><button class="btn ok sm" onclick="setStatus(\''+r.sid+'\',\''+r.date+'\',\'확인\')">확인</button> <button class="btn bad sm" onclick="setStatus(\''+r.sid+'\',\''+r.date+'\',\'제외\')">제외</button> '+(r.status!=='대기'?'<button class="btn ghost sm" onclick="setStatus(\''+r.sid+'\',\''+r.date+'\',\'대기\')">되돌림</button>':'')+'</td></tr>';
+    });
+    $('pendingBox').innerHTML=h+'</tbody></table>';
+  }
+  async function viewCapture(sid,date,name){
+    try{
+      const d=await db.collection(COL).doc(sid).collection('captures').doc(date).get();
+      if(!d.exists){ alert('캡처가 없습니다.'); return; }
+      $('lbImg').src=d.data().data; $('lbCap').textContent=name+' · '+date; $('lb').style.display='flex';
+    }catch(e){ alert('캡처 읽기 실패: '+e.message); }
+  }
+  async function setStatus(sid,date,status){
+    hide('pendMsg');
+    const memoEl=$('memo-'+sid+'|'+date); const memo=memoEl?memoEl.value:'';
+    try{ await db.collection(COL).doc(sid).collection('records').doc(date).update({status, memo, reviewedAt: firebase.firestore.FieldValue.serverTimestamp()}); }
+    catch(e){ show('pendMsg','err',e.message); }
+  }
+  async function confirmAllShown(){
+    const list=[]; filtered().forEach(s=>s.recs.forEach(r=>{ if(r.status==='대기') list.push(r); }));
+    if(!list.length){ show('pendMsg','ok','확인할 대기 기록이 없습니다.'); return; }
+    if(!confirm(list.length+'건을 모두 "확인" 처리할까요?')) return;
+    try{
+      for(let i=0;i<list.length;i+=400){
+        const b=db.batch();
+        list.slice(i,i+400).forEach(r=>b.update(db.collection(COL).doc(r.sid).collection('records').doc(r.date),{status:'확인', reviewedAt: firebase.firestore.FieldValue.serverTimestamp()}));
+        await b.commit();
+      }
+      show('pendMsg','ok',list.length+'건 확인 처리되었습니다.');
+    }catch(e){ show('pendMsg','err',e.message); }
+  }
+  function renderSummary(){
+    const st=filtered();
+    let h='<table><thead><tr><th>학년-반</th><th>학번</th><th class="l">이름</th><th>성별</th><th>참여횟수</th><th>실외</th><th>실내</th><th>베스트(m)</th><th>베스트 날짜</th><th>대기</th><th>제외</th></tr></thead><tbody>';
+    st.forEach(s=>{ const t=s.stats; h+='<tr class="'+(t.count<5?'low':'')+'"><td>'+s.grade+'-'+s.cls+'</td><td>'+s.id+'</td><td class="l"><b>'+esc(s.name)+'</b></td><td>'+esc(s.sex)+'</td><td><b>'+t.count+'</b></td><td>'+t.outdoor+'</td><td>'+t.indoor+'</td><td>'+(t.best?'<b>'+fmt(t.best)+'</b>'+(t.bestPending?' <span class="c-wait">?</span>':''):'-')+'</td><td>'+t.bestDate+'</td><td>'+(t.pending||'')+'</td><td>'+(t.excluded||'')+'</td></tr>'; });
+    $('summaryBox').innerHTML=h+'</tbody></table>';
+  }
+  async function manualSave(){
+    hide('mMsg');
+    const sid=$('mStudent').value, date=$('mDate').value, dist=Math.round(Number($('mDist').value)), place=$('mPlace').value, memo=$('mMemo').value;
+    const s=D.students.find(x=>x.id===sid);
+    if(!s||!date||!dist){ show('mMsg','err','학생·날짜·거리를 입력하세요.'); return; }
+    $('mBtn').disabled=true;
+    try{
+      const ref=db.collection(COL).doc(sid).collection('records').doc(date);
+      const prev=await ref.get();
+      await ref.set({ sid, name:s.name, grade:s.grade, cls:s.cls, sex:s.sex||'', date, distance:dist, place, status:'확인', memo:'교사 입력'+(memo?' / '+memo:''), hasCapture: prev.exists?!!prev.data().hasCapture:false, submittedAt: firebase.firestore.FieldValue.serverTimestamp(), reviewedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      show('mMsg','ok','저장되었습니다.'); $('mDist').value=''; $('mMemo').value='';
+    }catch(e){ show('mMsg','err',e.message); }
+    $('mBtn').disabled=false;
+  }
+
+  /* ---------- 명부 ---------- */
+  function previewRoster(input){
+    hide('rosterMsg'); rosterRows=null; $('rosterPreview').innerHTML='';
+    const f=input.files&&input.files[0]; if(!f) return;
+    const fr=new FileReader();
+    fr.onload=e=>{
+      try{
+        const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const raw=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''});
+        const head=raw[0].map(h=>String(h).trim());
+        const idx=k=>head.findIndex(h=>h===k||h.toUpperCase()===k);
+        const I={id:idx('학번'),name:idx('이름'),grade:idx('학년'),cls:idx('반'),sex:idx('성별'),pin:idx('PIN')};
+        const missing=Object.entries(I).filter(([k,v])=>v<0&&k!=='pin').map(([k])=>({id:'학번',name:'이름',grade:'학년',cls:'반',sex:'성별'}[k]));
+        if(missing.length) throw new Error('제목 행에 없는 열: '+missing.join(', '));
+        const rows=[], errs=[];
+        raw.slice(1).forEach((r,i)=>{
+          const id=String(r[I.id]).trim(); if(!id) return;
+          const pinRaw = I.pin>=0 ? String(r[I.pin]).trim() : '';
+          const row={id, name:String(r[I.name]).trim(), grade:Number(r[I.grade]), cls:Number(r[I.cls]), sex:String(r[I.sex]).trim(), pin: pinRaw || DEFAULT_PIN, pinExplicit: !!pinRaw};
+          if(!row.name||!row.grade||!row.cls) errs.push((i+2)+'행: 값 누락');
+          else if(!/^\d{4}$/.test(row.pin)) errs.push((i+2)+'행 '+row.name+': PIN은 숫자 4자리');
+          else rows.push(row);
+        });
+        if(errs.length) throw new Error(errs.slice(0,5).join(' / ')+(errs.length>5?' 외 '+(errs.length-5)+'건':''));
+        const dup=rows.map(r=>r.id).filter((v,i,a)=>a.indexOf(v)!==i);
+        if(dup.length) throw new Error('중복 학번: '+[...new Set(dup)].join(', '));
+        rosterRows=rows;
+        const exist=new Set(D.students.map(s=>s.id)); const nNew=rows.filter(r=>!exist.has(r.id)).length;
+        $('rosterPreview').innerHTML='<div class="hint">'+rows.length+'명 읽음 (신규 '+nNew+' / 갱신 '+(rows.length-nNew)+', PIN 미기재 '+rows.filter(r=>!r.pinExplicit).length+'명은 0000으로) · 첫 3명: '+rows.slice(0,3).map(r=>r.grade+'-'+r.cls+' '+esc(r.name)).join(', ')+'</div><button class="btn" style="margin-top:8px" onclick="uploadRoster()">Firebase에 등록</button>';
+      }catch(err){ show('rosterMsg','err',err.message); }
+    };
+    fr.readAsArrayBuffer(f);
+  }
+  async function uploadRoster(){
+    if(!rosterRows) return;
+    hide('rosterMsg');
+    const exist=new Set(D.students.map(s=>s.id));
+    try{
+      for(let i=0;i<rosterRows.length;i+=400){
+        const b=db.batch();
+        for(const r of rosterRows.slice(i,i+400)){
+          const doc={ name:r.name, grade:r.grade, cls:r.cls, sex:r.sex, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+          // 신규 학생이거나 엑셀에 PIN을 명시한 경우에만 PIN 설정 — 학생이 직접 바꾼 PIN은 재업로드로 초기화되지 않음
+          if(!exist.has(r.id) || r.pinExplicit) doc.pinHash = await sha256(r.id+':'+r.pin);
+          b.set(db.collection(COL).doc(r.id), doc, {merge:true});
+        }
+        await b.commit();
+      }
+      show('rosterMsg','ok',rosterRows.length+'명 등록/갱신 완료.'); rosterRows=null; $('rosterPreview').innerHTML=''; $('rosterFile').value='';
+    }catch(e){ show('rosterMsg','err',e.message); }
+  }
+  function renderRoster(){
+    const q=($('rosterQ').value||'').trim();
+    const st=D.students.filter(s=>!q||s.id.includes(q)||(s.name||'').includes(q));
+    let h='<table><thead><tr><th>학년-반</th><th>학번</th><th class="l">이름</th><th>성별</th><th>기록</th><th></th></tr></thead><tbody>';
+    st.forEach(s=>{ h+='<tr><td>'+s.grade+'-'+s.cls+'</td><td>'+s.id+'</td><td class="l">'+esc(s.name)+'</td><td>'+esc(s.sex)+'</td><td>'+(s.recs?s.recs.length:0)+'</td><td><button class="btn ghost sm" onclick="resetPin(\''+s.id+'\')">PIN 초기화</button> <button class="btn ghost sm" onclick="removeStudent(\''+s.id+'\')">삭제</button></td></tr>'; });
+    $('rosterBox').innerHTML=h+'</tbody></table>';
+  }
+  async function resetPin(sid){
+    const pin=prompt(sid+' 의 새 PIN (숫자 4자리). 비우면 0000으로 초기화', '0000'); if(pin===null) return;
+    const p2=pin.trim()||DEFAULT_PIN; if(!/^\d{4}$/.test(p2)){ alert('숫자 4자리여야 합니다.'); return; }
+    await db.collection(COL).doc(sid).update({pinHash: await sha256(sid+':'+p2)});
+    alert('변경되었습니다.');
+  }
+  async function removeStudent(sid){
+    const s=D.students.find(x=>x.id===sid);
+    if(!confirm(sid+' '+(s?s.name:'')+' 을(를) 명부에서 삭제할까요?\n(기록은 남지만 대시보드에서 보이지 않게 됩니다)')) return;
+    await db.collection(COL).doc(sid).delete();
+  }
+
+  /* ---------- 엑셀 내보내기 ---------- */
+  function exportXlsx(){
+    enrich();
+    const wb=XLSX.utils.book_new();
+    const sum=[['학번','이름','학년','반','성별','참여횟수','실외횟수','실내횟수','베스트(m)','베스트날짜','확인대기','제외']];
+    D.students.forEach(s=>{ const t=s.stats; sum.push([s.id,s.name,s.grade,s.cls,s.sex,t.count,t.outdoor,t.indoor,t.best||'',t.bestDate,t.pending,t.excluded]); });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum), '집계');
+    const mat=[['학번','이름','학년','반'].concat(D.dates)];
+    D.students.forEach(s=>mat.push([s.id,s.name,s.grade,s.cls].concat(D.dates.map(d=>{ const r=s.byDate[d]; if(!r) return ''; if(r.status==='제외') return '✗'; return (r.place==='실내'?'실내 ':'')+r.distance+(r.status==='대기'?'?':''); }))));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mat), '참여매트릭스');
+    const raw=[['학번','이름','학년','반','성별','날짜','거리(m)','장소','상태','메모','캡처','제출시각']];
+    D.records.slice().sort((a,b)=>(a.date+a.sid).localeCompare(b.date+b.sid)).forEach(r=>raw.push([r.sid,r.name,r.grade,r.cls,r.sex||'',r.date,r.distance,r.place,r.status,r.memo||'',r.hasCapture?'Y':'',r.submittedAt&&r.submittedAt.toDate?r.submittedAt.toDate().toLocaleString('ko-KR'):'']));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(raw), '원자료');
+    XLSX.writeFile(wb, '10분달리기_'+todayKST()+'.xlsx');
+  }
+</script>
+</body>
+</html>

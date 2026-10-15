@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>전남외국어고등학교 10분 달리기</title>
+<style>
+  :root{--bg:#f4f6fb;--card:#fff;--ink:#1b2130;--sub:#6b7280;--line:#e5e7eb;--pri:#2563eb;--pri-d:#1d4ed8;--ok:#16a34a;--warn:#d97706;--bad:#dc2626;--soft:#eff6ff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;font-size:16px;line-height:1.45}
+  .wrap{max-width:480px;margin:0 auto;padding:16px 16px 48px}
+  header{display:flex;align-items:center;gap:10px;padding:6px 0 14px}
+  header .logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#2563eb,#7c3aed);display:grid;place-items:center;font-size:22px}
+  header h1{font-size:17px;margin:0;font-weight:700}
+  header p{margin:0;font-size:12.5px;color:var(--sub)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  label{display:block;font-size:13px;font-weight:600;color:#374151;margin:12px 0 6px}
+  input[type=text],input[type=password],input[type=number],input[type=date]{width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:17px;background:#fff}
+  input:focus{outline:none;border-color:var(--pri)}
+  .btn{width:100%;padding:15px;border:0;border-radius:12px;background:var(--pri);color:#fff;font-size:17px;font-weight:700;margin-top:16px;cursor:pointer}
+  .btn:active{background:var(--pri-d)}
+  .btn[disabled]{opacity:.55}
+  .seg{display:flex;border:1.5px solid var(--line);border-radius:12px;overflow:hidden}
+  .seg button{flex:1;padding:12px;border:0;background:#fff;font-size:16px;font-weight:600;color:var(--sub);cursor:pointer}
+  .seg button.on{background:var(--pri);color:#fff}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .stat{background:var(--soft);border-radius:12px;padding:12px 14px}
+  .stat .k{font-size:12px;color:var(--sub);font-weight:600}
+  .stat .v{font-size:26px;font-weight:800;color:var(--pri);line-height:1.2}
+  .stat .v small{font-size:13px;color:var(--sub);font-weight:600}
+  .hint{font-size:12.5px;color:var(--sub);margin-top:6px}
+  .msg{padding:12px 14px;border-radius:12px;font-size:14px;margin-top:12px;display:none}
+  .msg.err{display:block;background:#fef2f2;color:var(--bad);border:1px solid #fecaca}
+  .msg.ok{display:block;background:#f0fdf4;color:var(--ok);border:1px solid #bbf7d0}
+  .drop{border:2px dashed #c7d2fe;border-radius:12px;padding:16px;text-align:center;background:#f8faff;cursor:pointer;position:relative}
+  .drop input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+  .drop img{max-width:100%;max-height:220px;border-radius:8px;display:block;margin:0 auto 6px}
+  .drop .t{font-size:14px;color:var(--pri);font-weight:700}
+  .drop .s{font-size:12px;color:var(--sub)}
+  .list{margin:0;padding:0;list-style:none}
+  .list li{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);font-size:15px}
+  .list li:last-child{border-bottom:0}
+  .list .d{color:var(--sub);font-size:13px}
+  .list .m{font-weight:800;font-size:17px}
+  .tag{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;margin-left:6px}
+  .tag.wait{background:#fef3c7;color:var(--warn)}
+  .tag.ok{background:#dcfce7;color:var(--ok)}
+  .tag.no{background:#fee2e2;color:var(--bad)}
+  .tag.in{background:#e5e7eb;color:#374151}
+  .top{display:flex;justify-content:space-between;align-items:center}
+  .top .who{font-weight:800;font-size:18px}
+  .top .who small{font-weight:600;color:var(--sub);font-size:13px;margin-left:6px}
+  .link{background:none;border:0;color:var(--sub);font-size:13px;text-decoration:underline;cursor:pointer}
+  .spin{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:r .8s linear infinite;vertical-align:-4px;margin-right:6px}
+  @keyframes r{to{transform:rotate(360deg)}}
+  .best-note{font-size:12px;color:var(--warn);margin-top:4px}
+  .foot{text-align:center;font-size:11.5px;color:#9ca3af;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🏃</div>
+    <div><h1>전남외국어고등학교 10분 달리기</h1><p>매주 내 기록을 남기고 베스트를 갱신하자</p></div>
+  </header>
+
+  <div class="card" id="loginCard">
+    <label>학번</label>
+    <input type="text" id="sid" inputmode="numeric" placeholder="예: 10101" autocomplete="off">
+    <label>PIN (4자리)</label>
+    <input type="password" id="pin" inputmode="numeric" placeholder="선생님이 알려준 번호" autocomplete="off">
+    <button class="btn" id="loginBtn" onclick="login()">들어가기</button>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <div id="main" style="display:none">
+    <div class="card">
+      <div class="top">
+        <div class="who"><span id="who"></span><small id="whoCls"></small></div>
+        <button class="link" onclick="logout()">나가기</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">참여 횟수</div><div class="v"><span id="stCount">0</span><small> 회</small></div></div>
+        <div class="stat"><div class="k">실외 베스트</div><div class="v"><span id="stBest">-</span><small> m</small></div><div class="best-note" id="bestNote"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:800;font-size:16px">오늘 기록 입력</div>
+      <label>날짜</label>
+      <input type="date" id="date">
+      <label>달린 장소</label>
+      <div class="seg">
+        <button id="segOut" class="on" onclick="setPlace('실외')">🌤 실외 (운동장)</button>
+        <button id="segIn" onclick="setPlace('실내')">🏠 실내 (우천)</button>
+      </div>
+      <div class="hint" id="placeHint">실외 기록은 베스트 기록에 반영됩니다. 런데이 캡처를 꼭 첨부하세요.</div>
+      <label>10분 동안 달린 거리 (m)</label>
+      <input type="number" id="dist" inputmode="numeric" placeholder="예: 1850  (1.85km → 1850)">
+      <div id="capBox">
+        <label>런데이 캡처</label>
+        <div class="drop">
+          <input type="file" id="file" accept="image/*" onchange="pickImage(this)">
+          <div id="dropInner"><div class="t">📷 사진 선택 / 촬영</div><div class="s">런데이 기록 화면(날짜·거리가 보이게)을 캡처해 올려주세요.</div></div>
+        </div>
+      </div>
+      <button class="btn" id="submitBtn" onclick="submit()">기록 저장</button>
+      <div class="msg" id="subMsg"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:800;font-size:16px;margin-bottom:6px">내 기록</div>
+      <ul class="list" id="recList"></ul>
+      <div class="hint" id="recEmpty" style="display:none">아직 기록이 없어요. 오늘 첫 기록을 남겨보세요!</div>
+    </div>
+
+    <div class="card" id="pinCard">
+      <div class="top">
+        <div style="font-weight:800;font-size:16px">🔒 PIN 변경</div>
+        <button class="link" id="pinToggle" onclick="togglePin()">열기</button>
+      </div>
+      <div class="msg" id="pinWarn" style="margin-top:8px"></div>
+      <div id="pinForm" style="display:none">
+        <label>새 PIN (숫자 4자리)</label>
+        <input type="password" id="newPin" inputmode="numeric" maxlength="4" placeholder="0000 외의 숫자 4자리">
+        <label>새 PIN 다시 입력</label>
+        <input type="password" id="newPin2" inputmode="numeric" maxlength="4">
+        <button class="btn" id="pinBtn" onclick="changePin()">PIN 바꾸기</button>
+        <div class="msg" id="pinMsg"></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">전남외국어고등학교 체육과 · 10분 달리기 기록 시스템</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  /* ====== Firebase 설정: pe-team-builder 의 index.html 에 있는 FB_CONFIG 를 그대로 복사해 넣으세요 ====== */
+  const FB_CONFIG = {
+    apiKey: "AIzaSyCt8B1VKA7kOaWhI-K1yy7fYEr0359uO18",
+    authDomain: "pe-team-builder.firebaseapp.com",
+    projectId: "pe-team-builder",
+    messagingSenderId: "400305479648",
+    appId: "1:400305479648:web:8e0d6c0245579cb9f61585"
+  };
+  const COL = 'run10_students';   // 명부 컬렉션 (하위 records 에 기록)
+  const DEFAULT_PIN = '0000';     // 명부 등록 시 기본 PIN — 학생이 첫 로그인 후 변경
+  const MIN_D = 100, MAX_D = 4000;
+  const CAP_MAX_PX = 1000, CAP_MAX_BYTES = 350000; // 캡처 축소 기준 (Firestore 문서 1MB 제한 대비)
+
+  firebase.initializeApp(FB_CONFIG);
+  const auth = firebase.auth(), db = firebase.firestore();
+
+  let S = { id:'', pin:'', student:null, place:'실외', img:null, unsub:null };
+  const $ = id => document.getElementById(id);
+  function show(id, cls, text){ const m=$(id); m.className='msg '+cls; m.textContent=text; }
+  function hide(id){ $(id).className='msg'; }
+  function busy(btn, on, label){ const b=$(btn); b.disabled=on; b.innerHTML = on ? '<span class="spin"></span>'+label : label; }
+  function todayKST(){ return new Date(Date.now()+9*3600*1000).toISOString().slice(0,10); }
+  async function sha256(s){ const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+
+  try{ const saved=JSON.parse(localStorage.getItem('run10')||'null'); if(saved){ $('sid').value=saved.id; $('pin').value=saved.pin; } }catch(e){}
+
+  async function login(){
+    hide('loginMsg');
+    const id=$('sid').value.trim(), pin=$('pin').value.trim();
+    if(!id||!pin){ show('loginMsg','err','학번과 PIN을 입력하세요.'); return; }
+    busy('loginBtn',true,'확인 중…');
+    try{
+      if(!auth.currentUser) await auth.signInAnonymously();
+      const snap = await db.collection(COL).doc(id).get();
+      if(!snap.exists) throw new Error('명부에 없는 학번입니다. 선생님께 확인하세요.');
+      const st = snap.data();
+      const h = await sha256(id+':'+pin);
+      if(st.pinHash !== h) throw new Error('PIN이 일치하지 않습니다.');
+      S.id=id; S.pin=pin; S.student=Object.assign({id},st);
+      try{ localStorage.setItem('run10',JSON.stringify({id,pin})); }catch(e){}
+      $('loginCard').style.display='none'; $('main').style.display='block';
+      $('who').textContent=st.name; $('whoCls').textContent=st.grade+'학년 '+st.cls+'반 · '+id;
+      $('date').value=todayKST(); $('date').max=todayKST();
+      // 기본 PIN(0000) 그대로면 변경 안내
+      if(pin===DEFAULT_PIN){ show('pinWarn','err','PIN이 아직 기본값(0000)입니다. 친구가 내 기록을 대신 올리지 못하도록 바꿔주세요.'); togglePin(true); $('pinCard').scrollIntoView({behavior:'smooth',block:'nearest'}); }
+      else { hide('pinWarn'); }
+      if(S.unsub) S.unsub();
+      S.unsub = db.collection(COL).doc(id).collection('records').onSnapshot(q=>{
+        const recs=[]; q.forEach(d=>recs.push(d.data())); render(recs);
+      }, e=>show('subMsg','err','기록을 불러오지 못했습니다: '+e.message));
+    }catch(e){ show('loginMsg','err',e.message); }
+    busy('loginBtn',false,'들어가기');
+  }
+  function logout(){ try{localStorage.removeItem('run10');}catch(e){} if(S.unsub) S.unsub(); location.reload(); }
+
+  function render(recs){
+    recs.sort((a,b)=>a.date<b.date?1:-1);
+    const valid=recs.filter(r=>r.status!=='제외');
+    const out=valid.filter(r=>r.place==='실외');
+    let best=null; out.forEach(r=>{ if(!best||r.distance>best.distance) best=r; });
+    $('stCount').textContent=valid.length;
+    $('stBest').textContent=best?best.distance.toLocaleString():'-';
+    $('bestNote').textContent=best&&best.status==='대기'?'선생님 확인 전':'';
+    const ul=$('recList'); ul.innerHTML='';
+    $('recEmpty').style.display=recs.length?'none':'block';
+    recs.forEach(r=>{
+      const li=document.createElement('li');
+      const tag = r.status==='제외'?'<span class="tag no">제외</span>' : r.status==='확인'?'<span class="tag ok">확인</span>':'<span class="tag wait">대기</span>';
+      const place = r.place==='실내'?'<span class="tag in">실내</span>':'';
+      li.innerHTML='<div class="d">'+r.date+'</div><div><span class="m">'+Number(r.distance).toLocaleString()+' m</span>'+place+tag+'</div>';
+      ul.appendChild(li);
+    });
+  }
+
+  function setPlace(p){
+    S.place=p;
+    $('segOut').classList.toggle('on',p==='실외'); $('segIn').classList.toggle('on',p==='실내');
+    $('capBox').style.display = p==='실외' ? 'block':'none';
+    $('placeHint').textContent = p==='실외' ? '실외 기록은 베스트 기록에 반영됩니다. 런데이 캡처를 꼭 첨부하세요.' : '실내 기록은 참여 횟수에만 반영되고 베스트 기록에서는 제외됩니다. 캡처는 선택입니다.';
+  }
+
+  function pickImage(input){
+    const f=input.files&&input.files[0]; if(!f) return;
+    const img=new Image(); const fr=new FileReader();
+    fr.onload=e=>{ img.src=e.target.result; };
+    img.onload=()=>{
+      let max=CAP_MAX_PX, q=0.75, url='';
+      for(let i=0;i<6;i++){
+        const sc=Math.min(1,max/Math.max(img.width,img.height));
+        const c=document.createElement('canvas'); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        url=c.toDataURL('image/jpeg',q);
+        if(url.length<=CAP_MAX_BYTES) break;
+        max=Math.round(max*0.8); q=Math.max(0.5,q-0.08);
+      }
+      S.img=url;
+      $('dropInner').innerHTML='<img src="'+url+'"><div class="s">다른 사진으로 바꾸려면 다시 선택</div>';
+    };
+    fr.readAsDataURL(f);
+  }
+
+  async function submit(){
+    hide('subMsg');
+    const date=$('date').value, dist=$('dist').value.trim();
+    if(!date){ show('subMsg','err','날짜를 선택하세요.'); return; }
+    if(date>todayKST()){ show('subMsg','err','미래 날짜는 입력할 수 없습니다.'); return; }
+    const d=Math.round(Number(dist));
+    if(!dist||isNaN(dist)||d<=0){ show('subMsg','err','거리를 m 단위 숫자로 입력하세요. (예: 1850)'); return; }
+    if(d<MIN_D){ show('subMsg','err','거리가 너무 작아요. km가 아니라 m 단위입니다. (1.85km → 1850)'); return; }
+    if(d>MAX_D){ show('subMsg','err','10분 달리기 거리로 보기 어렵습니다. m 단위가 맞는지 확인하세요.'); return; }
+    if(S.place==='실외' && !S.img){ show('subMsg','err','실외 기록은 런데이 캡처가 필요합니다.'); return; }
+    busy('submitBtn',true,'저장 중…');
+    try{
+      const ref=db.collection(COL).doc(S.id).collection('records').doc(date);
+      const prev=await ref.get();
+      if(prev.exists && prev.data().status!=='대기') throw new Error(date+' 기록은 이미 선생님이 '+prev.data().status+' 처리했습니다. 수정이 필요하면 선생님께 말씀하세요.');
+      const st=S.student;
+      // 캡처는 별도 문서(captures/날짜)에 저장 — 교사 대시보드가 기록 목록만 가볍게 읽기 위함
+      if(S.img){
+        await db.collection(COL).doc(S.id).collection('captures').doc(date).set({ sid:S.id, date, data:S.img, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      }
+      const data={ sid:S.id, name:st.name, grade:st.grade, cls:st.cls, sex:st.sex||'', date, distance:d, place:S.place, status:'대기',
+        memo: prev.exists ? (prev.data().memo||'') : '',
+        hasCapture: !!S.img || (prev.exists ? !!prev.data().hasCapture : false),
+        submittedAt: firebase.firestore.FieldValue.serverTimestamp() };
+      await ref.set(data);
+      show('subMsg','ok','저장되었습니다! '+date+' · '+d.toLocaleString()+'m'+(S.place==='실내'?' (실내)':''));
+      S.img=null; $('dist').value=''; $('file').value='';
+      $('dropInner').innerHTML='<div class="t">📷 사진 선택 / 촬영</div><div class="s">런데이 기록 화면(날짜·거리가 보이게)을 캡처해 올려주세요.</div>';
+      window.scrollTo({top:0,behavior:'smooth'});
+    }catch(e){ show('subMsg','err', e.code==='permission-denied' ? '저장이 거부되었습니다. 이미 처리된 기록이거나 입력값이 규칙에 맞지 않습니다.' : e.message); }
+    busy('submitBtn',false,'기록 저장');
+  }
+  function togglePin(force){
+    const f=$('pinForm'); const open = force===true ? true : f.style.display==='none';
+    f.style.display=open?'block':'none'; $('pinToggle').textContent=open?'닫기':'열기';
+  }
+  async function changePin(){
+    hide('pinMsg');
+    const a=$('newPin').value.trim(), b=$('newPin2').value.trim();
+    if(!/^\d{4}$/.test(a)){ show('pinMsg','err','숫자 4자리로 입력하세요.'); return; }
+    if(a===DEFAULT_PIN){ show('pinMsg','err','0000은 쓸 수 없어요. 다른 번호로 정하세요.'); return; }
+    if(a!==b){ show('pinMsg','err','두 번 입력한 PIN이 다릅니다.'); return; }
+    busy('pinBtn',true,'변경 중…');
+    try{
+      const oldHash=await sha256(S.id+':'+S.pin), newHash=await sha256(S.id+':'+a);
+      await db.collection(COL).doc(S.id).update({ pinHash:newHash, proof:oldHash, pinChangedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      S.pin=a; try{ localStorage.setItem('run10',JSON.stringify({id:S.id,pin:a})); }catch(e){}
+      $('newPin').value=''; $('newPin2').value=''; hide('pinWarn');
+      show('pinMsg','ok','PIN이 바뀌었습니다. 다음부터는 새 PIN으로 들어오세요.');
+      setTimeout(()=>togglePin(),1500);
+    }catch(e){ show('pinMsg','err', e.code==='permission-denied' ? '변경이 거부되었습니다. 다시 로그인한 뒤 시도하세요.' : e.message); }
+    busy('pinBtn',false,'PIN 바꾸기');
+  }
+  $('pin').addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
+</script>
+</body>
+</html>
