@@ -180,7 +180,8 @@
         <div>
           <h3 style="margin:0 0 6px;font-size:15px">엑셀로 명부 등록 / 갱신</h3>
           <p class="hint" style="margin:0 0 8px">첫 행 제목이 <code>학번 이름 학년 반 성별</code> 인 엑셀(.xlsx)을 올리세요. <code>PIN</code> 열은 선택이며 없으면 <b>0000</b>으로 등록되고 학생이 첫 로그인 때 직접 바꿉니다. 이미 있는 학번은 이름만 갱신되고 기록과 학생이 바꾼 PIN은 그대로 유지됩니다.</p>
-          <div class="drop"><input type="file" id="rosterFile" accept=".xlsx,.xls,.csv" onchange="previewRoster(this)"><div><b style="color:var(--pri)">📄 엑셀 파일 선택</b><div class="hint">명부양식.xlsx 참고</div></div></div>
+          <div class="bar" style="margin-bottom:8px"><button class="btn ghost sm" onclick="downloadTemplate()">📄 엑셀 양식 내려받기</button><span class="hint">양식에 명단을 채워 아래에 올리세요</span></div>
+          <div class="drop"><input type="file" id="rosterFile" accept=".xlsx,.xls,.csv" onchange="previewRoster(this)"><div><b style="color:var(--pri)">📤 작성한 엑셀 파일 선택</b><div class="hint">학번 · 이름 · 학년 · 반 · 성별 (PIN 열은 선택)</div></div></div>
           <div id="rosterPreview" style="margin-top:10px"></div>
           <div class="msg" id="rosterMsg"></div>
         </div>
@@ -369,6 +370,25 @@
   }
 
   /* ---------- 명부 ---------- */
+  function downloadTemplate(){
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.aoa_to_sheet([['학번','이름','학년','반','성별'],['10101','홍길동(예시)',1,1,'남'],['10102','김영희(예시)',1,1,'여'],['20301','이철수(예시)',2,3,'남']]);
+    ws['!cols']=[{wch:10},{wch:14},{wch:6},{wch:6},{wch:6}];
+    ['A2','A3','A4'].forEach(c=>{ ws[c].t='s'; ws[c].z='@'; });
+    XLSX.utils.book_append_sheet(wb,ws,'명부');
+    const g=XLSX.utils.aoa_to_sheet([
+      ['작성 안내'],
+      ['1. 첫 행 제목(학번 이름 학년 반 성별)은 그대로 두세요.'],
+      ['2. 예시 3행은 지우고 실제 명단을 넣으세요. 나이스에서 복사해 붙여넣어도 됩니다.'],
+      ['3. 학번은 중복이 없어야 합니다 (예: 1학년 3반 15번 → 10315).'],
+      ['4. PIN 열은 없어도 됩니다 → 전원 0000으로 등록되고, 학생이 첫 로그인 때 직접 바꿉니다.'],
+      ['5. 특정 학생에게 PIN을 지정하려면 PIN 열(숫자 4자리)을 추가하세요.'],
+      ['6. 이미 등록된 학생을 다시 올리면 이름·학년·반만 갱신되고, 학생이 바꾼 PIN과 기록은 유지됩니다.'],
+    ]);
+    g['!cols']=[{wch:90}];
+    XLSX.utils.book_append_sheet(wb,g,'작성안내');
+    XLSX.writeFile(wb,'10분달리기_명부양식.xlsx');
+  }
   function previewRoster(input){
     hide('rosterMsg'); rosterRows=null; $('rosterPreview').innerHTML='';
     const f=input.files&&input.files[0]; if(!f) return;
