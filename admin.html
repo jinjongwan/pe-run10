@@ -36,6 +36,7 @@
   th.stick{z-index:3;background:#f8fafc}
   .c-ok{color:var(--ok);font-weight:700} .c-wait{color:var(--warn);font-weight:700} .c-no{color:var(--bad);font-weight:700} .c-in{color:#6b7280;font-weight:700}
   .c-miss{color:#d1d5db}
+  .cdate{font-size:10.5px;color:#9ca3af;line-height:1.1;margin-top:1px}
   .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px}
   .pill.wait{background:#fef3c7;color:var(--warn)} .pill.ok{background:#dcfce7;color:var(--ok)} .pill.no{background:#fee2e2;color:var(--bad)} .pill.in{background:#e5e7eb;color:#374151}
   .low{background:#fff7ed}
@@ -110,7 +111,7 @@
       <div class="kpi"><div class="k">총 기록 수</div><div class="v" id="kRecords">0</div></div>
       <div class="kpi"><div class="k">확인 대기</div><div class="v" id="kPending" style="color:var(--warn)">0</div></div>
       <div class="kpi"><div class="k">5회 이상 참여</div><div class="v" id="kFive" style="color:var(--ok)">0</div></div>
-      <div class="kpi"><div class="k">오늘 미입력</div><div class="v" id="kTodayMiss" style="color:var(--bad)">0</div></div>
+      <div class="kpi"><div class="k">최근 7일 미입력</div><div class="v" id="kTodayMiss" style="color:var(--bad)">0</div></div>
     </div>
 
     <div class="tabs">
@@ -139,7 +140,7 @@
         <span><b class="c-in">🏠1200</b> 실내 (참여만 인정)</span>
         <span><b class="c-no">✗</b> 제외</span>
         <span><b class="c-miss">·</b> 미입력</span>
-        <span style="margin-left:auto">⚠ 음영 = 참여 5회 미만</span>
+        <span>칸 아래 작은 글씨 = 그 학생이 뛴 날짜</span><span style="margin-left:auto">⚠ 음영 = 참여 5회 미만</span>
       </div>
       <div class="tbl" id="matrixBox"></div>
     </div>
@@ -295,9 +296,10 @@
     let best=null; out.forEach(r=>{ if(!best||r.distance>best.distance) best=r; });
     return { count:valid.length, outdoor:out.length, indoor:valid.length-out.length, best:best?best.distance:0, bestDate:best?best.date:'', bestPending:best?best.status==='대기':false, pending:recs.filter(r=>r.status==='대기').length, excluded:recs.filter(r=>r.status==='제외').length };
   }
+  function daysAgo(n){ return new Date(Date.now()+9*3600*1000-n*86400000).toISOString().slice(0,10); }
   function enrich(){
     const by={}; D.records.forEach(r=>(by[r.sid]=by[r.sid]||[]).push(r));
-    D.students.forEach(s=>{ s.recs=by[s.id]||[]; s.byDate={}; s.recs.forEach(r=>s.byDate[r.date]=r); s.stats=statsFor(s.recs); });
+    D.students.forEach(s=>{ s.recs=(by[s.id]||[]).sort((a,b)=>a.date.localeCompare(b.date)); s.byDate={}; s.recs.forEach(r=>s.byDate[r.date]=r); s.rounds=s.recs.filter(r=>r.status!=='제외'); s.excl=s.recs.filter(r=>r.status==='제외'); s.stats=statsFor(s.recs); });
   }
   function filtered(){ const c=$('clsSel').value; return D.students.filter(s=>!c || (s.grade+'-'+s.cls)===c); }
   function tab(t){ ['matrix','pending','summary','manual','roster','board'].forEach(x=>{ $('pane-'+x).style.display=x===t?'block':'none'; $('tab-'+x).classList.toggle('on',x===t); }); }
@@ -310,7 +312,7 @@
     const pend=allRecs.filter(r=>r.status==='대기').length;
     $('kPending').textContent=pend; $('pendBadge').textContent=pend;
     $('kFive').textContent=st.filter(s=>s.stats.count>=5).length;
-    $('kTodayMiss').textContent=st.filter(s=>!s.byDate[today]).length;
+    const wk=daysAgo(7); $('kTodayMiss').textContent=st.filter(s=>!s.recs.some(r=>r.date>=wk&&r.status!=='제외')).length;
     $('rosterCount').textContent='('+D.students.length+'명)';
     renderMatrix(); renderPending(); renderSummary(); renderRoster(); renderBoard();
   }
@@ -320,11 +322,23 @@
     if(r.place==='실내') return '<span class="c-in">🏠'+fmt(r.distance)+(r.status==='대기'?'?':'')+'</span>';
     return '<span class="'+(r.status==='대기'?'c-wait':'c-ok')+'">'+fmt(r.distance)+(r.status==='대기'?'?':'')+'</span>';
   }
+  function roundCell(r){
+    if(!r) return '<span class="c-miss">·</span>';
+    const d='<div class="cdate">'+r.date.slice(5).replace('-','/')+'</div>';
+    if(r.place==='실내') return '<span class="c-in">🏠'+fmt(r.distance)+(r.status==='대기'?'?':'')+'</span>'+d;
+    return '<span class="'+(r.status==='대기'?'c-wait':'c-ok')+'">'+fmt(r.distance)+(r.status==='대기'?'?':'')+'</span>'+d;
+  }
   function renderMatrix(){
-    const st=filtered(), dates=D.dates;
-    if(!dates.length){ $('matrixBox').innerHTML='<p class="hint" style="padding:12px">아직 제출된 기록이 없습니다.</p>'; return; }
-    let h='<table><thead><tr><th class="stick l">학생</th><th>참여</th><th>베스트</th>'+dates.map(d=>'<th>'+d.slice(5)+'</th>').join('')+'</tr></thead><tbody>';
-    st.forEach(s=>{ h+='<tr class="'+(s.stats.count<5?'low':'')+'"><td class="stick l">'+s.grade+'-'+s.cls+' '+esc(s.name)+' <span class="hint">'+s.id+'</span></td><td><b>'+s.stats.count+'</b></td><td>'+(s.stats.best?fmt(s.stats.best):'-')+'</td>'+dates.map(d=>'<td>'+cell(s.byDate[d])+'</td>').join('')+'</tr>'; });
+    const st=filtered();
+    if(!D.records.length){ $('matrixBox').innerHTML='<p class="hint" style="padding:12px">아직 제출된 기록이 없습니다.</p>'; return; }
+    const nR=Math.max(5,...st.map(s=>s.rounds.length));
+    const anyExcl=st.some(s=>s.excl.length);
+    let h='<table><thead><tr><th class="stick l">학생</th><th>참여</th><th>베스트</th>'+Array.from({length:nR},(_,i)=>'<th>'+(i+1)+'차</th>').join('')+(anyExcl?'<th>제외</th>':'')+'</tr></thead><tbody>';
+    st.forEach(s=>{
+      h+='<tr class="'+(s.stats.count<5?'low':'')+'"><td class="stick l">'+s.grade+'-'+s.cls+' '+esc(s.name)+' <span class="hint">'+s.id+'</span></td><td><b>'+s.stats.count+'</b></td><td>'+(s.stats.best?fmt(s.stats.best):'-')+'</td>'+
+        Array.from({length:nR},(_,i)=>'<td>'+roundCell(s.rounds[i])+'</td>').join('')+
+        (anyExcl?'<td>'+(s.excl.length?s.excl.map(r=>'<span class="c-no" title="'+esc(r.memo)+'">✗</span><div class="cdate">'+r.date.slice(5).replace('-','/')+'</div>').join(''):'<span class="c-miss">·</span>')+'</td>':'')+'</tr>';
+    });
     $('matrixBox').innerHTML=h+'</tbody></table>';
   }
   function renderPending(){
@@ -501,8 +515,8 @@
     const totalDist=st.reduce((a,s)=>a+s.recs.filter(r=>r.status!=='제외').reduce((b,r)=>b+r.distance,0),0);
     const totalRecs=st.reduce((a,s)=>a+s.stats.count,0);
     const avgBest=withBest.length?Math.round(withBest.reduce((a,s)=>a+s.stats.best,0)/withBest.length):0;
-    const latest=dates[dates.length-1];
-    const todayN=latest?st.filter(s=>s.byDate[latest]&&s.byDate[latest].status!=='제외').length:0;
+    const wk=daysAgo(7);
+    const todayN=st.filter(s=>s.recs.some(r=>r.date>=wk&&r.status!=='제외')).length;
     const grade20=st.filter(s=>{ const k=SEX_STD[s.sex]; return k&&s.stats.best>=k[0]; }).length;
 
     // 반별 집계
@@ -518,9 +532,10 @@
     const topAll=withBest.slice().sort((a,b)=>b.stats.best-a.stats.best||a.stats.bestDate.localeCompare(b.stats.bestDate));
     const topM=topAll.filter(s=>s.sex==='남').slice(0,10), topF=topAll.filter(s=>s.sex==='여').slice(0,10);
     // 이번 회차 PR 갱신자 (최근 날짜 기록이 그 학생의 베스트이고 이전 베스트보다 큰 경우)
-    const prs=[]; if(latest){ st.forEach(s=>{ const r=s.byDate[latest]; if(!r||r.status==='제외'||r.place!=='실외')return; const prev=s.recs.filter(x=>x.date<latest&&x.status!=='제외'&&x.place==='실외').reduce((m,x)=>Math.max(m,x.distance),0); if(prev>0&&r.distance>prev) prs.push({s,gain:r.distance-prev,now:r.distance}); }); prs.sort((a,b)=>b.gain-a.gain); }
+    const prs=[]; st.forEach(s=>{ const out=s.rounds.filter(x=>x.place==='실외'); const r=out[out.length-1]; if(!r||r.date<wk)return; const prev=out.slice(0,-1).reduce((m,x)=>Math.max(m,x.distance),0); if(prev>0&&r.distance>prev) prs.push({s,gain:r.distance-prev,now:r.distance}); }); prs.sort((a,b)=>b.gain-a.gain);
     // 개근
-    const perfect=st.filter(s=>dates.length>0&&dates.every(d=>s.byDate[d]&&s.byDate[d].status!=='제외'));
+    const maxR=Math.max(0,...st.map(s=>s.stats.count));
+    const perfect=maxR>0?st.filter(s=>s.stats.count===maxR):[];
 
     const nm=s=>maskName(s.name)+'<small>'+s.grade+'-'+s.cls+'</small>';
     const rankList=(arr,valFn,unit)=>arr.length?arr.map((s,i)=>'<div class="rank">'+medal(i)+'<div class="nm">'+nm(s)+'</div><div class="val">'+valFn(s)+'<small>'+unit+'</small></div></div>').join(''):'<p class="hint">아직 실외 기록이 없습니다.</p>';
@@ -531,7 +546,7 @@
         '<div class="bstat"><div class="k">전체 누적 거리</div><div class="v">'+(totalDist/1000).toFixed(1)+'<small> km</small></div></div>'+
         '<div class="bstat"><div class="k">총 참여 횟수</div><div class="v">'+fmt(totalRecs)+'<small> 회</small></div></div>'+
         '<div class="bstat"><div class="k">평균 베스트</div><div class="v">'+fmt(avgBest)+'<small> m</small></div></div>'+
-        '<div class="bstat"><div class="k">'+(latest?latest.slice(5)+' 참여':'최근 참여')+'</div><div class="v">'+todayN+'<small> / '+st.length+'명</small></div></div>'+
+        '<div class="bstat"><div class="k">최근 7일 참여</div><div class="v">'+todayN+'<small> / '+st.length+'명</small></div></div>'+
         '<div class="bstat"><div class="k">기록 만점(20점) 달성</div><div class="v">'+grade20+'<small> 명</small></div></div>'+
       '</div>'+
       '<div class="bgrid">'+
@@ -540,8 +555,8 @@
         '<div class="bcard"><h3>🛣 반별 1인당 누적 거리</h3>'+barList(byDist,c=>c.distPer,maxDist,c=>(c.distPer/1000).toFixed(2)+' km')+'</div>'+
         '<div class="bcard"><h3>👑 남학생 TOP 10</h3>'+rankList(topM,s=>fmt(s.stats.best),'m')+'</div>'+
         '<div class="bcard"><h3>👑 여학생 TOP 10</h3>'+rankList(topF,s=>fmt(s.stats.best),'m')+'</div>'+
-        '<div class="bcard"><h3>📈 '+(latest?latest.slice(5):'')+' 베스트 갱신 <span class="hint">이전 베스트 대비</span></h3>'+(prs.length?prs.slice(0,10).map((p,i)=>'<div class="rank">'+medal(i)+'<div class="nm">'+nm(p.s)+'</div><div class="val"><span class="up">+'+fmt(p.gain)+'</span><small>→ '+fmt(p.now)+'m</small></div></div>').join(''):'<p class="hint">이번 회차 갱신자가 아직 없습니다.</p>')+'</div>'+
-        '<div class="bcard"><h3>💯 개근 <span class="hint">'+dates.length+'회 전부 참여 · '+perfect.length+'명</span></h3>'+(perfect.length?'<div style="display:flex;flex-wrap:wrap;gap:6px">'+perfect.map(s=>'<span class="pill ok" style="font-size:13px;padding:4px 10px">'+maskName(s.name)+' <span style="opacity:.6;font-weight:600">'+s.grade+'-'+s.cls+'</span></span>').join('')+'</div>':'<p class="hint">아직 기록 회차가 없습니다.</p>')+'</div>'+
+        '<div class="bcard"><h3>📈 이번 주 베스트 갱신 <span class="hint">최근 7일 · 이전 베스트 대비</span></h3>'+(prs.length?prs.slice(0,10).map((p,i)=>'<div class="rank">'+medal(i)+'<div class="nm">'+nm(p.s)+'</div><div class="val"><span class="up">+'+fmt(p.gain)+'</span><small>→ '+fmt(p.now)+'m</small></div></div>').join(''):'<p class="hint">이번 주 갱신자가 아직 없습니다.</p>')+'</div>'+
+        '<div class="bcard"><h3>💯 최다 참여 <span class="hint">'+maxR+'회 달성 · '+perfect.length+'명</span></h3>'+(perfect.length?'<div style="display:flex;flex-wrap:wrap;gap:6px">'+perfect.map(s=>'<span class="pill ok" style="font-size:13px;padding:4px 10px">'+maskName(s.name)+' <span style="opacity:.6;font-weight:600">'+s.grade+'-'+s.cls+'</span></span>').join('')+'</div>':'<p class="hint">아직 기록이 없습니다.</p>')+'</div>'+
       '</div>';
   }
 
@@ -614,8 +629,9 @@
     const sum=[['학번','이름','학년','반','성별','참여횟수','실외횟수','실내횟수','베스트(m)','베스트날짜','확인대기','제외']];
     D.students.forEach(s=>{ const t=s.stats; sum.push([s.id,s.name,s.grade,s.cls,s.sex,t.count,t.outdoor,t.indoor,t.best||'',t.bestDate,t.pending,t.excluded]); });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum), '집계');
-    const mat=[['학번','이름','학년','반'].concat(D.dates)];
-    D.students.forEach(s=>mat.push([s.id,s.name,s.grade,s.cls].concat(D.dates.map(d=>{ const r=s.byDate[d]; if(!r) return ''; if(r.status==='제외') return '✗'; return (r.place==='실내'?'실내 ':'')+r.distance+(r.status==='대기'?'?':''); }))));
+    const nR=Math.max(5,...D.students.map(s=>s.rounds.length));
+    const mat=[['학번','이름','학년','반','참여횟수'].concat(Array.from({length:nR},(_,i)=>[(i+1)+'차 날짜',(i+1)+'차 거리(m)',(i+1)+'차 장소']).flat()).concat(['제외 기록'])];
+    D.students.forEach(s=>mat.push([s.id,s.name,s.grade,s.cls,s.stats.count].concat(Array.from({length:nR},(_,i)=>{ const r=s.rounds[i]; return r?[r.date,r.distance,r.place+(r.status==='대기'?'(대기)':'')]:['','','']; }).flat()).concat([s.excl.map(r=>r.date+' '+r.distance).join(', ')])));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mat), '참여매트릭스');
     const raw=[['학번','이름','학년','반','성별','날짜','거리(m)','장소','상태','메모','캡처','제출시각']];
     D.records.slice().sort((a,b)=>(a.date+a.sid).localeCompare(b.date+b.sid)).forEach(r=>raw.push([r.sid,r.name,r.grade,r.cls,r.sex||'',r.date,r.distance,r.place,r.status,r.memo||'',r.hasCapture?'Y':'',r.submittedAt&&r.submittedAt.toDate?r.submittedAt.toDate().toLocaleString('ko-KR'):'']));
