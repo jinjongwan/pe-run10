@@ -188,7 +188,32 @@
         <div>
           <h3 style="margin:0 0 6px;font-size:15px">등록된 명부 <span class="hint" id="rosterCount"></span></h3>
           <div class="bar"><input type="text" id="rosterQ" placeholder="이름/학번 검색" oninput="renderRoster()" style="flex:1"></div>
-          <div class="tbl" style="max-height:52vh" id="rosterBox"></div>
+          <div class="tbl" style="max-height:40vh" id="rosterBox"></div>
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:16px">
+        <div class="bcard">
+          <h3>➕ 학생 1명 직접 등록</h3>
+          <p class="hint" style="margin:0 0 8px">전학생 등 한두 명은 엑셀 없이 여기서 바로 등록합니다. PIN은 0000으로 시작합니다.</p>
+          <div class="bar">
+            <input type="text" id="aId" placeholder="학번 (예: 10311)" style="width:130px">
+            <input type="text" id="aName" placeholder="이름" style="width:110px">
+            <input type="number" id="aGrade" placeholder="학년" min="1" max="3" style="width:70px">
+            <input type="number" id="aCls" placeholder="반" min="1" max="20" style="width:70px">
+            <select id="aSex"><option>남</option><option>여</option></select>
+            <button class="btn" id="aBtn" onclick="addStudent()">등록</button>
+          </div>
+          <div class="msg" id="aMsg"></div>
+        </div>
+        <div class="bcard" style="border-color:#fecaca;background:#fff8f8">
+          <h3 style="color:var(--bad)">⚠ 초기화 (되돌릴 수 없음)</h3>
+          <p class="hint" style="margin:0 0 10px">실행 전에 현재 데이터가 엑셀로 자동 백업됩니다. 확인창에 <b>초기화</b>라고 입력해야 실행됩니다.</p>
+          <div class="bar">
+            <button class="btn ghost sm" onclick="resetAllPins()">🔑 전체 PIN을 0000으로</button>
+            <button class="btn ghost sm" style="color:var(--bad);border-color:#fca5a5" onclick="resetRecords()">🧹 기록만 초기화 (명부 유지)</button>
+            <button class="btn bad sm" onclick="resetAll()">💥 전체 초기화 (명부+기록)</button>
+          </div>
+          <div class="msg" id="rMsg"></div>
         </div>
       </div>
     </div>
@@ -444,7 +469,7 @@
     const q=($('rosterQ').value||'').trim();
     const st=D.students.filter(s=>!q||s.id.includes(q)||(s.name||'').includes(q));
     let h='<table><thead><tr><th>학년-반</th><th>학번</th><th class="l">이름</th><th>성별</th><th>기록</th><th></th></tr></thead><tbody>';
-    st.forEach(s=>{ h+='<tr><td>'+s.grade+'-'+s.cls+'</td><td>'+s.id+'</td><td class="l">'+esc(s.name)+'</td><td>'+esc(s.sex)+'</td><td>'+(s.recs?s.recs.length:0)+'</td><td><button class="btn ghost sm" onclick="resetPin(\''+s.id+'\')">PIN 초기화</button> <button class="btn ghost sm" onclick="removeStudent(\''+s.id+'\')">삭제</button></td></tr>'; });
+    st.forEach(s=>{ h+='<tr><td>'+s.grade+'-'+s.cls+'</td><td>'+s.id+'</td><td class="l">'+esc(s.name)+'</td><td>'+esc(s.sex)+'</td><td>'+(s.recs?s.recs.length:0)+'</td><td><button class="btn ghost sm" onclick="resetPin(\''+s.id+'\')">PIN 초기화</button> <button class="btn ghost sm" onclick="removeStudent(\''+s.id+'\')">명부에서 제외</button></td></tr>'; });
     $('rosterBox').innerHTML=h+'</tbody></table>';
   }
   async function resetPin(sid){
@@ -518,6 +543,68 @@
         '<div class="bcard"><h3>📈 '+(latest?latest.slice(5):'')+' 베스트 갱신 <span class="hint">이전 베스트 대비</span></h3>'+(prs.length?prs.slice(0,10).map((p,i)=>'<div class="rank">'+medal(i)+'<div class="nm">'+nm(p.s)+'</div><div class="val"><span class="up">+'+fmt(p.gain)+'</span><small>→ '+fmt(p.now)+'m</small></div></div>').join(''):'<p class="hint">이번 회차 갱신자가 아직 없습니다.</p>')+'</div>'+
         '<div class="bcard"><h3>💯 개근 <span class="hint">'+dates.length+'회 전부 참여 · '+perfect.length+'명</span></h3>'+(perfect.length?'<div style="display:flex;flex-wrap:wrap;gap:6px">'+perfect.map(s=>'<span class="pill ok" style="font-size:13px;padding:4px 10px">'+maskName(s.name)+' <span style="opacity:.6;font-weight:600">'+s.grade+'-'+s.cls+'</span></span>').join('')+'</div>':'<p class="hint">아직 기록 회차가 없습니다.</p>')+'</div>'+
       '</div>';
+  }
+
+  /* ---------- 직접 등록 / 초기화 ---------- */
+  async function addStudent(){
+    hide('aMsg');
+    const id=$('aId').value.trim(), name=$('aName').value.trim(), grade=Number($('aGrade').value), cls=Number($('aCls').value), sex=$('aSex').value;
+    if(!id||!name||!grade||!cls){ show('aMsg','err','학번·이름·학년·반을 모두 입력하세요.'); return; }
+    if(!/^\d{3,8}$/.test(id)){ show('aMsg','err','학번은 숫자만 입력하세요. (예: 10311)'); return; }
+    if(D.students.some(s=>s.id===id)){ show('aMsg','err',id+' 은(는) 이미 등록된 학번입니다.'); return; }
+    $('aBtn').disabled=true;
+    try{
+      await db.collection(COL).doc(id).set({ name, grade, cls, sex, pinHash: await sha256(id+':'+DEFAULT_PIN), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      show('aMsg','ok',grade+'-'+cls+' '+name+' ('+id+') 등록 완료. PIN 0000');
+      $('aId').value=''; $('aName').value='';
+    }catch(e){ show('aMsg','err',e.message); }
+    $('aBtn').disabled=false;
+  }
+  function confirmDanger(title){
+    const v=prompt(title+'\n\n계속하려면 "초기화" 라고 입력하세요.'); 
+    return v!==null && v.trim()==='초기화';
+  }
+  async function deleteSub(sid, sub){
+    const q=await db.collection(COL).doc(sid).collection(sub).get();
+    const docs=q.docs; let n=0;
+    for(let i=0;i<docs.length;i+=400){ const b=db.batch(); docs.slice(i,i+400).forEach(d=>b.delete(d.ref)); await b.commit(); n+=Math.min(400,docs.length-i); }
+    return n;
+  }
+  async function resetAllPins(){
+    hide('rMsg');
+    if(!D.students.length){ show('rMsg','err','등록된 학생이 없습니다.'); return; }
+    if(!confirmDanger('학생 '+D.students.length+'명의 PIN을 모두 0000으로 되돌립니다.')) return;
+    try{
+      for(let i=0;i<D.students.length;i+=400){
+        const b=db.batch();
+        for(const s of D.students.slice(i,i+400)) b.update(db.collection(COL).doc(s.id),{pinHash: await sha256(s.id+':'+DEFAULT_PIN)});
+        await b.commit();
+      }
+      show('rMsg','ok',D.students.length+'명의 PIN을 0000으로 초기화했습니다.');
+    }catch(e){ show('rMsg','err',e.message); }
+  }
+  async function resetRecords(){
+    hide('rMsg');
+    if(!D.records.length){ show('rMsg','err','지울 기록이 없습니다.'); return; }
+    if(!confirmDanger('기록 '+D.records.length+'건과 캡처를 모두 삭제합니다. 명부(학생·PIN)는 그대로 남습니다.')) return;
+    try{
+      exportXlsx();
+      let n=0;
+      for(const s of D.students){ n+=await deleteSub(s.id,'records'); await deleteSub(s.id,'captures'); }
+      show('rMsg','ok','기록 '+n+'건을 삭제했습니다. (백업 엑셀이 내려받아졌습니다)');
+    }catch(e){ show('rMsg','err',e.message); }
+  }
+  async function resetAll(){
+    hide('rMsg');
+    if(!D.students.length&&!D.records.length){ show('rMsg','err','지울 데이터가 없습니다.'); return; }
+    if(!confirmDanger('명부 '+D.students.length+'명과 기록 '+D.records.length+'건을 전부 삭제합니다. 새 학기 시작 등 완전히 비울 때만 사용하세요.')) return;
+    try{
+      if(D.records.length) exportXlsx();
+      const ids=D.students.map(s=>s.id);
+      for(const id of ids){ await deleteSub(id,'records'); await deleteSub(id,'captures'); }
+      for(let i=0;i<ids.length;i+=400){ const b=db.batch(); ids.slice(i,i+400).forEach(id=>b.delete(db.collection(COL).doc(id))); await b.commit(); }
+      show('rMsg','ok','전체 초기화 완료. 명부 관리에서 새 명단을 올리세요.');
+    }catch(e){ show('rMsg','err',e.message); }
   }
 
   /* ---------- 엑셀 내보내기 ---------- */
