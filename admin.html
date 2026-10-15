@@ -56,6 +56,33 @@
   .drop input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media (max-width:800px){.grid2{grid-template-columns:1fr}}
   code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:12px}
+  /* ── 순위·통계 ── */
+  .bgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .bcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .bcard h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:6px}
+  .bcard h3 .hint{font-weight:500;margin-left:auto}
+  .rank{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .rank:last-child{border-bottom:0}
+  .rank .no{width:30px;text-align:center;font-weight:800;font-size:16px;color:var(--sub)}
+  .rank .no.g{color:#d97706;font-size:20px} .rank .no.s{color:#6b7280;font-size:18px} .rank .no.b{color:#b45309;font-size:17px}
+  .rank .nm{flex:1;font-weight:700;font-size:15px} .rank .nm small{font-weight:600;color:var(--sub);margin-left:7px;font-size:12px;background:#f3f4f6;padding:1px 6px;border-radius:6px}
+  .rank .val{font-weight:800;font-size:17px;color:var(--pri);font-variant-numeric:tabular-nums}
+  .rank .val small{font-size:11.5px;color:var(--sub);font-weight:600;margin-left:3px}
+  .bar-row{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px}
+  .bar-row .lbl{width:52px;font-weight:700;text-align:right}
+  .bar-row .trk{flex:1;height:14px;background:#eef2f7;border-radius:999px;overflow:hidden}
+  .bar-row .fil{height:100%;border-radius:999px;background:linear-gradient(90deg,#60a5fa,#2563eb)}
+  .bar-row .fil.me{background:linear-gradient(90deg,#fbbf24,#d97706)}
+  .bar-row .num{width:90px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  .bstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+  .bstat{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-radius:12px;padding:12px 14px}
+  .bstat .k{font-size:12px;color:var(--sub);font-weight:600} .bstat .v{font-size:26px;font-weight:800;color:#1d4ed8;line-height:1.2} .bstat .v small{font-size:12px;color:var(--sub);font-weight:600}
+  .up{color:var(--ok);font-weight:800} .new{background:#fef3c7;color:#b45309;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:999px;margin-left:6px}
+  body.full .wrap{max-width:none;padding:18px 28px} body.full header,body.full .kpis,body.full .tabs,body.full #pane-board>.bar{display:none}
+  body.full #pane-board{border:0;background:transparent;padding:0}
+  body.full .bgrid{grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:18px}
+  body.full .rank .nm{font-size:19px} body.full .rank .val{font-size:22px} body.full .rank .no{font-size:20px} body.full .bstat .v{font-size:34px} body.full .bar-row{font-size:16px} body.full .bcard h3{font-size:19px}
+  #fullExit{display:none;position:fixed;top:10px;right:14px;z-index:9} body.full #fullExit{display:block}
 </style>
 </head>
 <body>
@@ -92,6 +119,17 @@
       <button id="tab-summary" onclick="tab('summary')">📊 학생별 요약</button>
       <button id="tab-manual" onclick="tab('manual')">✍️ 교사 직접 입력</button>
       <button id="tab-roster" onclick="tab('roster')">👥 명부 관리</button>
+      <button id="tab-board" onclick="tab('board')">🏆 순위·통계</button>
+    </div>
+
+    <div class="card" id="pane-board" style="display:none">
+      <div class="bar">
+        <span class="hint">기록이 올라오는 즉시 자동 갱신됩니다. 교실 TV에 띄울 땐 전체화면을 쓰세요.</span>
+        <label style="margin-left:auto"><input type="checkbox" id="maskNames" onchange="renderBoard()"> 이름 가리기 (홍*동)</label>
+        <select id="boardGrade" onchange="renderBoard()"><option value="">전체</option><option value="1">1학년</option><option value="2">2학년</option></select>
+        <button class="btn sm" onclick="toggleFull()">🖥 전체화면</button>
+      </div>
+      <div id="boardBox"></div>
     </div>
 
     <div class="card" id="pane-matrix">
@@ -156,6 +194,7 @@
   </div>
 </div>
 
+<button class="btn ghost" id="fullExit" onclick="toggleFull()">✕ 전체화면 종료</button>
 <div class="lightbox" id="lb" onclick="this.style.display='none'"><div class="lb-cap" id="lbCap"></div><img id="lbImg" alt="캡처"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -235,7 +274,7 @@
     D.students.forEach(s=>{ s.recs=by[s.id]||[]; s.byDate={}; s.recs.forEach(r=>s.byDate[r.date]=r); s.stats=statsFor(s.recs); });
   }
   function filtered(){ const c=$('clsSel').value; return D.students.filter(s=>!c || (s.grade+'-'+s.cls)===c); }
-  function tab(t){ ['matrix','pending','summary','manual','roster'].forEach(x=>{ $('pane-'+x).style.display=x===t?'block':'none'; $('tab-'+x).classList.toggle('on',x===t); }); }
+  function tab(t){ ['matrix','pending','summary','manual','roster','board'].forEach(x=>{ $('pane-'+x).style.display=x===t?'block':'none'; $('tab-'+x).classList.toggle('on',x===t); }); }
 
   function renderAll(){
     enrich();
@@ -247,7 +286,7 @@
     $('kFive').textContent=st.filter(s=>s.stats.count>=5).length;
     $('kTodayMiss').textContent=st.filter(s=>!s.byDate[today]).length;
     $('rosterCount').textContent='('+D.students.length+'명)';
-    renderMatrix(); renderPending(); renderSummary(); renderRoster();
+    renderMatrix(); renderPending(); renderSummary(); renderRoster(); renderBoard();
   }
   function cell(r){
     if(!r) return '<span class="c-miss">·</span>';
@@ -398,6 +437,67 @@
     const s=D.students.find(x=>x.id===sid);
     if(!confirm(sid+' '+(s?s.name:'')+' 을(를) 명부에서 삭제할까요?\n(기록은 남지만 대시보드에서 보이지 않게 됩니다)')) return;
     await db.collection(COL).doc(sid).delete();
+  }
+
+  /* ---------- 순위·통계 (교사 화면 전용, 실시간) ---------- */
+  const SEX_STD = { '남':[2200,1900,1600], '여':[1900,1600,1300] }; // 기록점수 기준(20/15/10)
+  function maskName(n){ n=String(n||''); if(!$('maskNames').checked||n.length<2) return esc(n); return esc(n[0]+'*'.repeat(n.length-2)+n[n.length-1]); }
+  function medal(i){ return i===0?'<span class="no g">🥇</span>':i===1?'<span class="no s">🥈</span>':i===2?'<span class="no b">🥉</span>':'<span class="no">'+(i+1)+'</span>'; }
+  function toggleFull(){ document.body.classList.toggle('full'); if(document.body.classList.contains('full')){ tab('board'); document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{}); } else { document.exitFullscreen&&document.fullscreenElement&&document.exitFullscreen().catch(()=>{}); } }
+  document.addEventListener('fullscreenchange',()=>{ if(!document.fullscreenElement) document.body.classList.remove('full'); });
+
+  function renderBoard(){
+    const g=$('boardGrade').value;
+    const st=D.students.filter(s=>!g||String(s.grade)===g);
+    const box=$('boardBox');
+    if(!st.length){ box.innerHTML='<p class="hint" style="padding:12px">명부를 먼저 등록하세요.</p>'; return; }
+    const dates=D.dates, today=todayKST();
+    const withBest=st.filter(s=>s.stats.best>0);
+    const totalDist=st.reduce((a,s)=>a+s.recs.filter(r=>r.status!=='제외').reduce((b,r)=>b+r.distance,0),0);
+    const totalRecs=st.reduce((a,s)=>a+s.stats.count,0);
+    const avgBest=withBest.length?Math.round(withBest.reduce((a,s)=>a+s.stats.best,0)/withBest.length):0;
+    const latest=dates[dates.length-1];
+    const todayN=latest?st.filter(s=>s.byDate[latest]&&s.byDate[latest].status!=='제외').length:0;
+    const grade20=st.filter(s=>{ const k=SEX_STD[s.sex]; return k&&s.stats.best>=k[0]; }).length;
+
+    // 반별 집계
+    const byCls={};
+    st.forEach(s=>{ const k=s.grade+'-'+s.cls; (byCls[k]=byCls[k]||{key:k,grade:s.grade,cls:s.cls,n:0,part:0,bestSum:0,bestN:0,dist:0,top:null,fiveN:0}); const c=byCls[k]; c.n++; if(s.stats.count>0)c.part++; if(s.stats.count>=5)c.fiveN++; if(s.stats.best>0){c.bestSum+=s.stats.best;c.bestN++; if(!c.top||s.stats.best>c.top.stats.best)c.top=s;} c.dist+=s.recs.filter(r=>r.status!=='제외').reduce((b,r)=>b+r.distance,0); });
+    const classes=Object.values(byCls).map(c=>Object.assign(c,{avg:c.bestN?Math.round(c.bestSum/c.bestN):0,rate:c.n?c.part/c.n:0,distPer:c.n?Math.round(c.dist/c.n):0}));
+    const byAvg=classes.slice().sort((a,b)=>b.avg-a.avg);
+    const byRate=classes.slice().sort((a,b)=>b.rate-a.rate||b.distPer-a.distPer);
+    const byDist=classes.slice().sort((a,b)=>b.distPer-a.distPer);
+    const maxAvg=Math.max(1,...classes.map(c=>c.avg)), maxDist=Math.max(1,...classes.map(c=>c.distPer));
+
+    // 개인 TOP
+    const topAll=withBest.slice().sort((a,b)=>b.stats.best-a.stats.best||a.stats.bestDate.localeCompare(b.stats.bestDate));
+    const topM=topAll.filter(s=>s.sex==='남').slice(0,10), topF=topAll.filter(s=>s.sex==='여').slice(0,10);
+    // 이번 회차 PR 갱신자 (최근 날짜 기록이 그 학생의 베스트이고 이전 베스트보다 큰 경우)
+    const prs=[]; if(latest){ st.forEach(s=>{ const r=s.byDate[latest]; if(!r||r.status==='제외'||r.place!=='실외')return; const prev=s.recs.filter(x=>x.date<latest&&x.status!=='제외'&&x.place==='실외').reduce((m,x)=>Math.max(m,x.distance),0); if(prev>0&&r.distance>prev) prs.push({s,gain:r.distance-prev,now:r.distance}); }); prs.sort((a,b)=>b.gain-a.gain); }
+    // 개근
+    const perfect=st.filter(s=>dates.length>0&&dates.every(d=>s.byDate[d]&&s.byDate[d].status!=='제외'));
+
+    const nm=s=>maskName(s.name)+'<small>'+s.grade+'-'+s.cls+'</small>';
+    const rankList=(arr,valFn,unit)=>arr.length?arr.map((s,i)=>'<div class="rank">'+medal(i)+'<div class="nm">'+nm(s)+'</div><div class="val">'+valFn(s)+'<small>'+unit+'</small></div></div>').join(''):'<p class="hint">아직 실외 기록이 없습니다.</p>';
+    const barList=(arr,valFn,max,fmtFn)=>arr.map((c,i)=>'<div class="bar-row"><span class="lbl">'+c.grade+'-'+c.cls+'</span><div class="trk"><div class="fil'+(i===0?' me':'')+'" style="width:'+Math.round(valFn(c)/max*100)+'%"></div></div><span class="num">'+fmtFn(c)+'</span></div>').join('');
+
+    box.innerHTML=
+      '<div class="bstats">'+
+        '<div class="bstat"><div class="k">전체 누적 거리</div><div class="v">'+(totalDist/1000).toFixed(1)+'<small> km</small></div></div>'+
+        '<div class="bstat"><div class="k">총 참여 횟수</div><div class="v">'+fmt(totalRecs)+'<small> 회</small></div></div>'+
+        '<div class="bstat"><div class="k">평균 베스트</div><div class="v">'+fmt(avgBest)+'<small> m</small></div></div>'+
+        '<div class="bstat"><div class="k">'+(latest?latest.slice(5)+' 참여':'최근 참여')+'</div><div class="v">'+todayN+'<small> / '+st.length+'명</small></div></div>'+
+        '<div class="bstat"><div class="k">기록 만점(20점) 달성</div><div class="v">'+grade20+'<small> 명</small></div></div>'+
+      '</div>'+
+      '<div class="bgrid">'+
+        '<div class="bcard"><h3>🏅 반별 평균 베스트 <span class="hint">실외 기록 보유자 평균</span></h3>'+barList(byAvg,c=>c.avg,maxAvg,c=>fmt(c.avg)+' m')+'</div>'+
+        '<div class="bcard"><h3>🔥 반별 참여율 <span class="hint">1회 이상 참여 / 5회 달성</span></h3>'+barList(byRate,c=>c.rate,1,c=>Math.round(c.rate*100)+'% · '+c.fiveN+'명')+'</div>'+
+        '<div class="bcard"><h3>🛣 반별 1인당 누적 거리</h3>'+barList(byDist,c=>c.distPer,maxDist,c=>(c.distPer/1000).toFixed(2)+' km')+'</div>'+
+        '<div class="bcard"><h3>👑 남학생 TOP 10</h3>'+rankList(topM,s=>fmt(s.stats.best),'m')+'</div>'+
+        '<div class="bcard"><h3>👑 여학생 TOP 10</h3>'+rankList(topF,s=>fmt(s.stats.best),'m')+'</div>'+
+        '<div class="bcard"><h3>📈 '+(latest?latest.slice(5):'')+' 베스트 갱신 <span class="hint">이전 베스트 대비</span></h3>'+(prs.length?prs.slice(0,10).map((p,i)=>'<div class="rank">'+medal(i)+'<div class="nm">'+nm(p.s)+'</div><div class="val"><span class="up">+'+fmt(p.gain)+'</span><small>→ '+fmt(p.now)+'m</small></div></div>').join(''):'<p class="hint">이번 회차 갱신자가 아직 없습니다.</p>')+'</div>'+
+        '<div class="bcard"><h3>💯 개근 <span class="hint">'+dates.length+'회 전부 참여 · '+perfect.length+'명</span></h3>'+(perfect.length?'<div style="display:flex;flex-wrap:wrap;gap:6px">'+perfect.map(s=>'<span class="pill ok" style="font-size:13px;padding:4px 10px">'+maskName(s.name)+' <span style="opacity:.6;font-weight:600">'+s.grade+'-'+s.cls+'</span></span>').join('')+'</div>':'<p class="hint">아직 기록 회차가 없습니다.</p>')+'</div>'+
+      '</div>';
   }
 
   /* ---------- 엑셀 내보내기 ---------- */
