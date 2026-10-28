@@ -375,10 +375,18 @@
   async function uploadToDrive(file, kind, title){
     const st=S.student;
     const body={ token:UPLOAD_TOKEN, sid:S.id, name:st.name, grade:st.grade, cls:st.cls, title, kind, date:todayKST(), filename:file.name, mime:file.type||'application/octet-stream', base64: await readFile(file) };
-    const r=await fetch(UPLOAD_URL,{ method:'POST', body:JSON.stringify(body) });
-    const j=await r.json().catch(()=>({ok:false,error:'응답 오류'}));
-    if(!j.ok) throw new Error('드라이브 업로드 실패: '+(j.error||''));
-    return j;
+    const payload=JSON.stringify(body);
+    const waits=[3000,8000]; let lastErr='';
+    for(let i=0;i<=waits.length;i++){
+      try{
+        const r=await fetch(UPLOAD_URL,{ method:'POST', body:payload });
+        const j=await r.json().catch(()=>({ok:false,error:'응답 오류'}));
+        if(j.ok) return j;
+        lastErr=j.error||''; if(lastErr==='token') break; // 설정 오류는 재시도 무의미
+      }catch(e){ lastErr=e.message; }
+      if(i<waits.length){ busy('podBtn',true,'서버가 바빠요… '+(waits[i]/1000)+'초 뒤 다시 시도 ('+(i+2)+'/3)'); await new Promise(r=>setTimeout(r,waits[i])); }
+    }
+    throw new Error('지금은 올리는 사람이 많아요. 1~2분 뒤에 다시 제출해 주세요. ('+lastErr+')');
   }
   async function submitPod(){
     hide('podMsg');
