@@ -391,7 +391,14 @@
     busy('podBtn',true,'음원 업로드 중… (최대 1분)');
     try{
       const a=await uploadToDrive(S.pod.audio,'audio',title);
-      let sc=null; if(S.pod.script){ busy('podBtn',true,'대본 업로드 중…'); sc=await uploadToDrive(S.pod.script,'script',title); }
+      let sc=null;
+      busy('podBtn',true,'대본 업로드 중…');
+      if(S.pod.script){ sc=await uploadToDrive(S.pod.script,'script',title); }
+      else { // 직접 쓴 대본도 .txt 파일로 드라이브에 저장
+        const header='['+st.grade+'-'+st.cls+' '+st.id+' '+st.name+'] '+title+'\n\n';
+        const txt=new File([header+text],'대본.txt',{type:'text/plain'});
+        sc=await uploadToDrive(txt,'script',title);
+      }
       const st=S.student;
       await db.collection(COL).doc(S.id).collection('podcasts').add({ sid:S.id, name:st.name, grade:st.grade, cls:st.cls, title,
         audioUrl:a.url, audioId:a.id, audioName:a.name, audioSize:a.size,
