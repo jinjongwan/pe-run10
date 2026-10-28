@@ -398,6 +398,7 @@
     if(UPLOAD_URL.indexOf('http')!==0){ show('podMsg','err','업로드 창구가 아직 설정되지 않았습니다. 선생님께 말씀하세요.'); return; }
     busy('podBtn',true,'음원 업로드 중… (최대 1분)');
     try{
+      const st=S.student;
       const a=await uploadToDrive(S.pod.audio,'audio',title);
       let sc=null;
       busy('podBtn',true,'대본 업로드 중…');
@@ -407,7 +408,6 @@
         const txt=new File([header+text],'대본.txt',{type:'text/plain'});
         sc=await uploadToDrive(txt,'script',title);
       }
-      const st=S.student;
       await db.collection(COL).doc(S.id).collection('podcasts').add({ sid:S.id, name:st.name, grade:st.grade, cls:st.cls, title,
         audioUrl:a.url, audioId:a.id, audioName:a.name, audioSize:a.size,
         scriptText:text, scriptUrl:sc?sc.url:'', scriptId:sc?sc.id:'', scriptName:sc?sc.name:'',
