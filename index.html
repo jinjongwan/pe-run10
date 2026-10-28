@@ -54,6 +54,15 @@
   .spin{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:r .8s linear infinite;vertical-align:-4px;margin-right:6px}
   @keyframes r{to{transform:rotate(360deg)}}
   .best-note{font-size:12px;color:var(--warn);margin-top:4px}
+  .recbox{border:1.5px solid var(--line);border-radius:12px;padding:14px;background:#fff}
+  .rec-row{display:flex;align-items:center;gap:12px}
+  .recbtn{flex:1;padding:14px;border:0;border-radius:12px;background:#dc2626;color:#fff;font-size:17px;font-weight:800;cursor:pointer}
+  .recbtn.on{background:#1b2130;animation:pulse 1.2s infinite}
+  .recbtn.done{background:var(--ok)}
+  .recbtn[disabled]{opacity:.5}
+  .rec-time{font-variant-numeric:tabular-nums;font-weight:800;font-size:20px;min-width:64px;text-align:right;color:var(--sub)}
+  .rec-time.on{color:#dc2626}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.5)}50%{box-shadow:0 0 0 10px rgba(220,38,38,0)}}
   .foot{text-align:center;font-size:11.5px;color:#9ca3af;margin-top:8px}
 </style>
 </head>
@@ -122,10 +131,19 @@
         <button class="link" id="podToggle" onclick="togglePod()">열기</button>
       </div>
       <div id="podForm" style="display:none">
-        <label>음원 파일 <span class="hint" style="display:inline">(m4a·mp3·wav, 30MB 이하)</span></label>
-        <div class="drop">
+        <label>음원</label>
+        <div class="recbox" id="recBox">
+          <div class="rec-row">
+            <button class="recbtn" id="recBtn" onclick="recToggle()">🎙 지금 녹음</button>
+            <div class="rec-time" id="recTime">00:00</div>
+          </div>
+          <div class="hint" id="recHint">녹음 버튼을 누르면 바로 시작됩니다. 처음엔 "마이크 사용" 허용을 눌러주세요. (최대 15분)</div>
+          <audio id="recPlay" controls style="display:none;width:100%;margin-top:10px"></audio>
+        </div>
+        <div class="hint" style="text-align:center;margin:8px 0 4px">— 또는 —</div>
+        <div class="drop" style="padding:12px">
           <input type="file" id="podAudio" accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.webm" onchange="pickPodAudio(this)">
-          <div id="podAudioInner"><div class="t">🎧 음원 파일 선택</div><div class="s">폰 녹음 앱으로 녹음한 파일을 고르세요</div></div>
+          <div id="podAudioInner"><div class="t" style="font-size:13.5px">🎧 녹음해 둔 파일 선택</div><div class="s">m4a·mp3·wav, 30MB 이하</div></div>
         </div>
         <label>대본</label>
         <textarea id="podScript" rows="6" maxlength="6000" placeholder="대본을 여기에 직접 적거나, 아래에서 파일로 첨부하세요." style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:15px;font-family:inherit;resize:vertical"></textarea>
@@ -306,10 +324,47 @@
   /* ---------- 팟캐스트 ---------- */
   function togglePod(force){ const f=$('podForm'); const open=force===true?true:f.style.display==='none'; f.style.display=open?'block':'none'; $('podToggle').textContent=open?'닫기':'열기'; }
   function readFile(f){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result.split(',')[1]); fr.onerror=rej; fr.readAsDataURL(f); }); }
+  /* ---- 브라우저 녹음 ---- */
+  const REC={ mr:null, chunks:[], t0:0, timer:null, stream:null, blob:null, url:null };
+  const REC_MAX_SEC=15*60;
+  function recMime(){ const c=['audio/webm;codecs=opus','audio/mp4','audio/webm','audio/ogg;codecs=opus']; for(const m of c){ if(window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m)) return m; } return ''; }
+  function fmtT(sec){ sec=Math.floor(sec); return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'); }
+  async function recToggle(){
+    const b=$('recBtn');
+    if(REC.mr && REC.mr.state==='recording'){ REC.mr.stop(); return; }
+    if(!navigator.mediaDevices||!window.MediaRecorder){ show('podMsg','err','이 브라우저는 녹음을 지원하지 않아요. 폰 녹음 앱으로 녹음한 뒤 파일 선택으로 올려주세요.'); return; }
+    hide('podMsg');
+    try{
+      REC.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+    }catch(e){ show('podMsg','err','마이크 사용이 허용되지 않았어요. 브라우저 주소창의 자물쇠(설정)에서 마이크를 허용해 주세요.'); return; }
+    const mime=recMime();
+    try{ REC.mr=new MediaRecorder(REC.stream, mime?{mimeType:mime,audioBitsPerSecond:48000}:{audioBitsPerSecond:48000}); }
+    catch(e){ REC.mr=new MediaRecorder(REC.stream); }
+    REC.chunks=[]; REC.blob=null; if(REC.url){ URL.revokeObjectURL(REC.url); REC.url=null; }
+    $('recPlay').style.display='none'; $('recPlay').src='';
+    REC.mr.ondataavailable=e=>{ if(e.data&&e.data.size) REC.chunks.push(e.data); };
+    REC.mr.onstop=()=>{
+      clearInterval(REC.timer); REC.stream.getTracks().forEach(t=>t.stop());
+      const type=REC.mr.mimeType||mime||'audio/webm';
+      REC.blob=new Blob(REC.chunks,{type});
+      const ext=type.includes('mp4')?'.m4a':type.includes('ogg')?'.ogg':'.webm';
+      const f=new File([REC.blob],'녹음_'+todayKST()+ext,{type});
+      S.pod.audio=f; $('podAudio').value='';
+      $('podAudioInner').innerHTML='<div class="t" style="font-size:13.5px">🎧 녹음해 둔 파일 선택</div><div class="s">m4a·mp3·wav, 30MB 이하</div>';
+      REC.url=URL.createObjectURL(REC.blob); const a=$('recPlay'); a.src=REC.url; a.style.display='block';
+      b.textContent='🔁 다시 녹음'; b.className='recbtn done'; $('recTime').classList.remove('on');
+      $('recHint').textContent='녹음 완료 ('+(REC.blob.size/1024/1024).toFixed(1)+'MB). 아래에서 들어보고, 괜찮으면 대본을 적고 제출하세요.';
+    };
+    REC.mr.start(1000); REC.t0=Date.now();
+    b.textContent='⏹ 녹음 정지'; b.className='recbtn on'; $('recTime').classList.add('on'); $('recTime').textContent='00:00';
+    $('recHint').textContent='녹음 중… 다 말했으면 정지를 누르세요.';
+    REC.timer=setInterval(()=>{ const sec=(Date.now()-REC.t0)/1000; $('recTime').textContent=fmtT(sec); if(sec>=REC_MAX_SEC && REC.mr.state==='recording') REC.mr.stop(); },250);
+  }
   function pickPodAudio(input){
     const f=input.files&&input.files[0]; if(!f) return;
     if(f.size>POD_MAX){ show('podMsg','err','음원이 30MB를 넘습니다. 녹음 앱에서 음질을 낮춰 다시 저장해 주세요.'); input.value=''; return; }
-    S.pod.audio=f; $('podAudioInner').innerHTML='<div class="t">🎧 '+esc(f.name)+'</div><div class="s">'+(f.size/1024/1024).toFixed(1)+' MB · 다른 파일로 바꾸려면 다시 선택</div>';
+    S.pod.audio=f; $('podAudioInner').innerHTML='<div class="t" style="font-size:13.5px">🎧 '+esc(f.name)+'</div><div class="s">'+(f.size/1024/1024).toFixed(1)+' MB · 다른 파일로 바꾸려면 다시 선택</div>';
+    REC.blob=null; $('recPlay').style.display='none'; $('recBtn').textContent='🎙 지금 녹음'; $('recBtn').className='recbtn'; $('recTime').textContent='00:00'; $('recHint').textContent='파일을 선택했어요. 녹음으로 바꾸려면 녹음 버튼을 누르세요.';
   }
   function pickPodScript(input){
     const f=input.files&&input.files[0]; if(!f) return;
@@ -329,7 +384,8 @@
     hide('podMsg');
     const text=$('podScript').value.trim();
     const title='팟캐스트 '+(S.pod.count+1)+' ('+todayKST().slice(5).replace('-','/')+')';
-    if(!S.pod.audio){ show('podMsg','err','음원 파일을 선택하세요.'); return; }
+    if(REC.mr && REC.mr.state==='recording'){ show('podMsg','err','녹음을 먼저 정지하세요.'); return; }
+    if(!S.pod.audio){ show('podMsg','err','녹음하거나 음원 파일을 선택하세요.'); return; }
     if(!text && !S.pod.script){ show('podMsg','err','대본을 적거나 파일로 첨부하세요.'); return; }
     if(UPLOAD_URL.indexOf('http')!==0){ show('podMsg','err','업로드 창구가 아직 설정되지 않았습니다. 선생님께 말씀하세요.'); return; }
     busy('podBtn',true,'음원 업로드 중… (최대 1분)');
@@ -343,7 +399,8 @@
         status:'대기', memo:'', submittedAt: firebase.firestore.FieldValue.serverTimestamp() });
       show('podMsg','ok','제출되었습니다! 「'+title+'」');
       S.pod.audio=null; S.pod.script=null; $('podScript').value=''; $('podAudio').value=''; $('podScriptFile').value='';
-      $('podAudioInner').innerHTML='<div class="t">🎧 음원 파일 선택</div><div class="s">폰 녹음 앱으로 녹음한 파일을 고르세요</div>';
+      $('podAudioInner').innerHTML='<div class="t" style="font-size:13.5px">🎧 녹음해 둔 파일 선택</div><div class="s">m4a·mp3·wav, 30MB 이하</div>';
+      REC.blob=null; $('recPlay').style.display='none'; $('recPlay').src=''; $('recBtn').textContent='🎙 지금 녹음'; $('recBtn').className='recbtn'; $('recTime').textContent='00:00'; $('recHint').textContent='녹음 버튼을 누르면 바로 시작됩니다. (최대 15분)';
       $('podScriptInner').innerHTML='<div class="s">📄 대본 파일로 첨부 (txt·pdf·docx·hwp·사진) — 선택</div>';
     }catch(e){ show('podMsg','err', e.code==='permission-denied' ? '저장이 거부되었습니다. 다시 로그인한 뒤 시도하세요.' : e.message); }
     busy('podBtn',false,'팟캐스트 제출');
