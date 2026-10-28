@@ -121,6 +121,21 @@
       <button id="tab-manual" onclick="tab('manual')">✍️ 교사 직접 입력</button>
       <button id="tab-roster" onclick="tab('roster')">👥 명부 관리</button>
       <button id="tab-board" onclick="tab('board')">🏆 순위·통계</button>
+      <button id="tab-pod" onclick="tab('pod')">🎙 팟캐스트 <span class="badge" id="podBadge">0</span></button>
+    </div>
+
+    <div class="card" id="pane-pod" style="display:none">
+      <div class="bar">
+        <span class="hint">학생이 올린 음원·대본은 선생님 드라이브 <code>10분달리기_팟캐스트</code> 폴더에 저장됩니다. 여기서 바로 듣고 확인/반려하세요.</span>
+      </div>
+      <div class="bar">
+        <label><input type="checkbox" id="podOnlyPending" checked onchange="renderPod()"> 대기 중만 보기</label>
+        <span class="hint" style="margin-left:auto" id="podSummary"></span>
+      </div>
+      <div class="tbl" id="podBox"></div>
+      <div class="msg" id="podMsg"></div>
+      <h3 style="font-size:14px;margin:16px 0 6px">제출 현황 (학생별 제출 편수)</h3>
+      <div class="tbl" style="max-height:40vh" id="podMatrixBox"></div>
     </div>
 
     <div class="card" id="pane-board" style="display:none">
@@ -230,7 +245,7 @@
 </div>
 
 <button class="btn ghost" id="fullExit" onclick="toggleFull()">✕ 전체화면 종료</button>
-<div class="lightbox" id="lb" onclick="this.style.display='none'"><div class="lb-cap" id="lbCap"></div><img id="lbImg" alt="캡처"></div>
+<div class="lightbox" id="lb" onclick="closeLb()"><div class="lb-cap" id="lbCap"></div><img id="lbImg" alt="캡처"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -253,7 +268,7 @@
   firebase.initializeApp(FB_CONFIG);
   const auth = firebase.auth(), db = firebase.firestore();
   const $ = id => document.getElementById(id);
-  let D = { students:[], records:[], dates:[], classes:[] }, unsubS=null, unsubR=null, rosterRows=null;
+  let D = { students:[], records:[], dates:[], classes:[], pods:[] }, unsubS=null, unsubR=null, unsubP=null, rosterRows=null;
   function show(id,cls,t){ const m=$(id); m.className='msg '+cls; m.textContent=t; }
   function hide(id){ $(id).className='msg'; }
   function fmt(n){ return Number(n).toLocaleString(); }
@@ -278,7 +293,7 @@
   });
 
   function subscribe(){
-    if(unsubS) unsubS(); if(unsubR) unsubR();
+    if(unsubS) unsubS(); if(unsubR) unsubR(); if(unsubP) unsubP();
     unsubS = db.collection(COL).onSnapshot(q=>{
       D.students=[]; q.forEach(d=>D.students.push(Object.assign({id:d.id}, d.data())));
       D.students.sort((a,b)=>(a.grade+'-'+a.cls+'-'+a.id).localeCompare(b.grade+'-'+b.cls+'-'+b.id));
@@ -290,6 +305,10 @@
       D.dates=[...new Set(D.records.map(r=>r.date))].sort();
       renderAll();
     }, e=>alert('기록 읽기 실패: '+e.message+'\n(처음이라면 Firestore 색인이 필요할 수 있습니다. 콘솔 메시지의 링크를 눌러 색인을 만드세요.)'));
+    unsubP = db.collectionGroup('podcasts').onSnapshot(q=>{
+      D.pods=[]; q.forEach(d=>D.pods.push(Object.assign({path:d.ref.path,id:d.id}, d.data())));
+      renderPod();
+    }, e=>console.warn('팟캐스트 읽기 실패', e));
   }
 
   /* ---------- 공통 ---------- */
@@ -310,7 +329,7 @@
     D.students.forEach(s=>{ s.recs=(by[s.id]||[]).sort((a,b)=>a.date.localeCompare(b.date)); s.byDate={}; s.recs.forEach(r=>s.byDate[r.date]=r); s.rounds=s.recs.filter(r=>r.status!=='제외'); s.excl=s.recs.filter(r=>r.status==='제외'); s.stats=statsFor(s.recs); });
   }
   function filtered(){ const c=$('clsSel').value; return D.students.filter(s=>!c || (s.grade+'-'+s.cls)===c); }
-  function tab(t){ ['matrix','pending','summary','manual','roster','board'].forEach(x=>{ $('pane-'+x).style.display=x===t?'block':'none'; $('tab-'+x).classList.toggle('on',x===t); }); }
+  function tab(t){ ['matrix','pending','summary','manual','roster','board','pod'].forEach(x=>{ $('pane-'+x).style.display=x===t?'block':'none'; $('tab-'+x).classList.toggle('on',x===t); }); }
 
   function renderAll(){
     enrich();
@@ -322,7 +341,7 @@
     $('kFive').textContent=st.filter(s=>s.stats.count>=5).length;
     const wk=daysAgo(7); $('kTodayMiss').textContent=st.filter(s=>!s.recs.some(r=>r.date>=wk&&r.status!=='제외')).length;
     $('rosterCount').textContent='('+D.students.length+'명)';
-    renderMatrix(); renderPending(); renderSummary(); renderRoster(); renderBoard();
+    renderMatrix(); renderPending(); renderSummary(); renderRoster(); renderBoard(); renderPod();
   }
   function cell(r){
     if(!r) return '<span class="c-miss">·</span>';
@@ -373,7 +392,7 @@
     try{
       const d=await db.collection(COL).doc(sid).collection('captures').doc(date).get();
       if(!d.exists){ alert('캡처가 없습니다.'); return; }
-      $('lbImg').src=d.data().data; $('lbCap').textContent=name+' · '+date; $('lb').style.display='flex';
+      $('lbImg').src=d.data().data; $('lbImg').style.display=''; const f=$('lbFrame'); if(f) f.style.display='none'; const t=$('lbText'); if(t) t.style.display='none'; $('lbCap').textContent=name+' · '+date; $('lb').style.display='flex';
     }catch(e){ alert('캡처 읽기 실패: '+e.message); }
   }
   async function setStatus(sid,date,status){
@@ -654,6 +673,62 @@
     });
   }
 
+  /* ---------- 팟캐스트 ---------- */
+  function closeLb(){ $('lb').style.display='none'; $('lbImg').style.display=''; const f=$('lbFrame'); if(f){ f.src='about:blank'; f.style.display='none'; } const t=$('lbText'); if(t) t.style.display='none'; }
+  function driveId(u){ const m=String(u||'').match(/\/d\/([\w-]+)/); return m?m[1]:''; }
+  function renderPod(){
+    if(!$('podBox')) return;
+    const onlyP=$('podOnlyPending').checked, cls=$('clsSel').value;
+    const byS={}; D.pods.forEach(p=>(byS[p.sid]=byS[p.sid]||[]).push(p));
+    const st=filtered();
+    const pend=D.pods.filter(p=>p.status==='대기').length; $('podBadge').textContent=pend;
+    let list=D.pods.filter(p=>(!cls||(p.grade+'-'+p.cls)===cls)&&(!onlyP||p.status==='대기'));
+    list.sort((a,b)=>((b.submittedAt&&b.submittedAt.seconds)||0)-((a.submittedAt&&a.submittedAt.seconds)||0));
+    const submitted=st.filter(s=>(byS[s.id]||[]).length).length;
+    $('podSummary').textContent='제출 '+D.pods.length+'편 · 제출 학생 '+submitted+'/'+st.length+'명 · 대기 '+pend;
+    if(!list.length){ $('podBox').innerHTML='<p class="hint" style="padding:12px">'+(onlyP?'확인 대기 중인 팟캐스트가 없습니다. 👍':'제출된 팟캐스트가 없습니다.')+'</p>'; }
+    else {
+      let h='<table><thead><tr><th>제출</th><th class="l">학생</th><th class="l">제출물</th><th>음원</th><th>대본</th><th>상태</th><th>메모</th><th>처리</th></tr></thead><tbody>';
+      list.forEach(p=>{
+        const d=p.submittedAt&&p.submittedAt.toDate?p.submittedAt.toDate():null;
+        const sc = p.scriptText ? '<button class="cap" onclick="viewScript(\''+p.path+'\')">📄 보기</button>' : '';
+        const scf = p.scriptUrl ? ' <a class="cap" href="'+esc(p.scriptUrl)+'" target="_blank" rel="noopener">파일 ↗</a>' : '';
+        h+='<tr id="pod-'+p.id+'"><td class="hint">'+(d?d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'')+'</td>'+
+          '<td class="l">'+p.grade+'-'+p.cls+' '+esc(p.name)+' <span class="hint">'+p.sid+'</span></td>'+
+          '<td class="l"><b>'+esc(p.title)+'</b></td>'+
+          '<td><button class="cap" onclick="playPod(\''+esc(p.audioUrl)+'\',\''+esc(p.name+' · '+p.title)+'\')">▶ 듣기</button>'+(p.audioSize?'<div class="hint">'+(p.audioSize/1024/1024).toFixed(1)+'MB</div>':'')+'</td>'+
+          '<td>'+(sc||scf?sc+scf:'<span class="c-no">없음</span>')+'</td>'+
+          '<td><span class="pill '+(p.status==='대기'?'wait':p.status==='확인'?'ok':'no')+'">'+esc(p.status)+'</span></td>'+
+          '<td><input class="memo" id="pmemo-'+p.id+'" value="'+esc(p.memo)+'" placeholder="메모 (반려 사유 등)"></td>'+
+          '<td><button class="btn ok sm" onclick="setPodStatus(\''+p.path+'\',\''+p.id+'\',\'확인\')">확인</button> <button class="btn bad sm" onclick="setPodStatus(\''+p.path+'\',\''+p.id+'\',\'반려\')">반려</button> '+(p.status!=='대기'?'<button class="btn ghost sm" onclick="setPodStatus(\''+p.path+'\',\''+p.id+'\',\'대기\')">되돌림</button>':'')+'</td></tr>';
+      });
+      $('podBox').innerHTML=h+'</tbody></table>';
+    }
+    // 학생별 제출 현황
+    let m='<table><thead><tr><th>학년-반</th><th>학번</th><th class="l">이름</th><th>제출 편수</th><th>확인</th><th>대기</th><th>반려</th><th class="l">제목</th></tr></thead><tbody>';
+    st.forEach(s=>{ const l=byS[s.id]||[]; const c=k=>l.filter(p=>p.status===k).length;
+      m+='<tr class="'+(l.length?'':'low')+'"><td>'+s.grade+'-'+s.cls+'</td><td>'+s.id+'</td><td class="l">'+esc(s.name)+'</td><td><b>'+l.length+'</b></td><td>'+(c('확인')||'')+'</td><td>'+(c('대기')||'')+'</td><td>'+(c('반려')||'')+'</td><td class="l hint">'+l.map(p=>esc(p.title)).join(' / ')+'</td></tr>'; });
+    $('podMatrixBox').innerHTML=m+'</tbody></table>';
+  }
+  function playPod(url,label){
+    const id=driveId(url); if(!id){ window.open(url,'_blank'); return; }
+    $('lbCap').textContent=label; $('lbImg').style.display='none';
+    let fr=$('lbFrame'); if(!fr){ fr=document.createElement('iframe'); fr.id='lbFrame'; fr.style.cssText='width:min(720px,95vw);height:140px;border:0;border-radius:10px;background:#fff'; fr.allow='autoplay'; $('lb').appendChild(fr); }
+    fr.style.display='block'; fr.src='https://drive.google.com/file/d/'+id+'/preview'; $('lb').style.display='flex';
+  }
+  function viewScript(path){
+    const p=D.pods.find(x=>x.path===path); if(!p) return;
+    $('lbCap').textContent=p.name+' · '+p.title+' — 대본'; $('lbImg').style.display='none';
+    let fr=$('lbFrame'); if(fr) fr.style.display='none';
+    let box=$('lbText'); if(!box){ box=document.createElement('div'); box.id='lbText'; box.style.cssText='width:min(720px,95vw);max-height:80vh;overflow:auto;background:#fff;border-radius:10px;padding:20px 24px;white-space:pre-wrap;font-size:15px;line-height:1.6'; box.onclick=e=>e.stopPropagation(); $('lb').appendChild(box); }
+    box.style.display='block'; box.textContent=p.scriptText; $('lb').style.display='flex';
+  }
+  async function setPodStatus(path,id,status){
+    hide('podMsg'); const el=$('pmemo-'+id); const memo=el?el.value:'';
+    try{ await db.doc(path).update({status, memo, reviewedAt: firebase.firestore.FieldValue.serverTimestamp()}); }
+    catch(e){ show('podMsg','err',e.message); }
+  }
+
   /* ---------- 엑셀 내보내기 ---------- */
   function exportXlsx(){
     enrich();
@@ -668,6 +743,11 @@
     const raw=[['학번','이름','학년','반','성별','날짜','거리(m)','장소','상태','메모','캡처','제출시각']];
     D.records.slice().sort((a,b)=>(a.date+a.sid).localeCompare(b.date+b.sid)).forEach(r=>raw.push([r.sid,r.name,r.grade,r.cls,r.sex||'',r.date,r.distance,r.place,r.status,r.memo||'',r.hasCapture?'Y':'',r.submittedAt&&r.submittedAt.toDate?r.submittedAt.toDate().toLocaleString('ko-KR'):'']));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(raw), '원자료');
+    if(D.pods.length){
+      const pod=[['학번','이름','학년','반','제출물','상태','메모','제출시각','음원 링크','대본(텍스트)','대본 파일 링크']];
+      D.pods.slice().sort((a,b)=>(a.grade+'-'+a.cls+a.sid).localeCompare(b.grade+'-'+b.cls+b.sid)).forEach(p=>pod.push([p.sid,p.name,p.grade,p.cls,p.title,p.status,p.memo||'',p.submittedAt&&p.submittedAt.toDate?p.submittedAt.toDate().toLocaleString('ko-KR'):'',p.audioUrl,p.scriptText||'',p.scriptUrl||'']));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pod), '팟캐스트');
+    }
     XLSX.writeFile(wb, '10분달리기_'+todayKST()+'.xlsx');
   }
 </script>
