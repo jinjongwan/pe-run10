@@ -420,6 +420,15 @@
     }catch(e){ show('podMsg','err', e.code==='permission-denied' ? '저장이 거부되었습니다. 다시 로그인한 뒤 시도하세요.' : e.message); }
     busy('podBtn',false,'팟캐스트 제출');
   }
+  async function deletePod(id, audioId, scriptId){
+    if(!confirm('이 제출을 삭제할까요?\n(선생님이 확인하기 전이라 삭제할 수 있어요. 삭제 후 다시 올리면 됩니다)')) return;
+    hide('podMsg');
+    try{
+      await fetch(UPLOAD_URL,{ method:'POST', body:JSON.stringify({ token:UPLOAD_TOKEN, action:'delete', ids:[audioId,scriptId].filter(Boolean) }) }).catch(()=>{});
+      await db.collection(COL).doc(S.id).collection('podcasts').doc(id).delete();
+      show('podMsg','ok','삭제했어요. 다시 녹음해서 올리면 됩니다.');
+    }catch(e){ show('podMsg','err', e.code==='permission-denied' ? '선생님이 이미 확인한 제출은 삭제할 수 없어요.' : e.message); }
+  }
   function renderPods(list){
     S.pod.count=list.length;
     list.sort((a,b)=>((b.submittedAt&&b.submittedAt.seconds)||0)-((a.submittedAt&&a.submittedAt.seconds)||0));
@@ -428,7 +437,8 @@
       const tag=p.status==='반려'?'<span class="tag no">반려</span>':p.status==='확인'?'<span class="tag ok">확인</span>':'<span class="tag wait">대기</span>';
       const d=p.submittedAt&&p.submittedAt.toDate?p.submittedAt.toDate():null;
       const li=document.createElement('li');
-      li.innerHTML='<div><div style="font-weight:700">'+esc(p.title)+'</div><div class="d">'+(p.audioName?'🎧 '+esc(p.audioName.split('_').pop()):'')+(p.scriptUrl?' · 📄 대본 파일':(p.scriptText?' · 📄 대본':''))+(p.memo?' · <span style="color:var(--bad)">'+esc(p.memo)+'</span>':'')+'</div></div><div>'+tag+'</div>';
+      const del = p.status==='대기' ? '<button class="link" style="margin-left:8px;color:var(--bad)" onclick="deletePod(\''+p.id+'\',\''+(p.audioId||'')+'\',\''+(p.scriptId||'')+'\')">삭제</button>' : '';
+      li.innerHTML='<div><div style="font-weight:700">'+esc(p.title)+'</div><div class="d">'+(p.audioName?'🎧 '+esc(p.audioName.split('_').pop()):'')+(p.scriptUrl?' · 📄 대본 파일':(p.scriptText?' · 📄 대본':''))+(p.memo?' · <span style="color:var(--bad)">'+esc(p.memo)+'</span>':'')+'</div></div><div style="white-space:nowrap">'+tag+del+'</div>';
       ul.appendChild(li);
     });
   }
