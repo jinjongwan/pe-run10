@@ -76,6 +76,15 @@
   .bbin{width:46px;padding:5px 4px;text-align:center;font-size:13px}
   .bbv{width:36px;padding:5px 2px;text-align:center;font-size:12.5px}
   td.best{background:#ecfdf5;font-weight:800}
+  .timer{display:flex;align-items:center;gap:12px;background:#0f172a;border-radius:14px;padding:12px 16px;margin-bottom:12px}
+  .timer .t-disp{flex:1;font-size:46px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:1px;line-height:1}
+  .timer .t-disp.warn{color:#fbbf24} .timer .t-disp.end{color:#f87171;animation:blink .5s 6}
+  .timer .t-btns{display:flex;flex-direction:column;gap:6px} .timer .t-btns .btn{padding:10px 16px;font-size:14px;white-space:nowrap}
+  .timer .t-btns .btn.ghost{background:#1e293b;color:#cbd5e1;border-color:#334155}
+  .timer.running{box-shadow:0 0 0 3px #2563eb}
+  @keyframes blink{50%{opacity:.2}}
+  #bbTableBox table{white-space:normal} #bbTableBox td,#bbTableBox th{padding:6px 5px}
+  .vb{font-weight:700;color:var(--bad)} .vb.z{color:#d1d5db;font-weight:500}
   /* ── 순위·통계 ── */
   .bgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
   .bcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
@@ -146,7 +155,7 @@
 
     <div class="card" id="pane-bb" style="display:none">
       <div class="bar">
-        <span class="hint">30초 드리블·슛 — 양적(성공 개수)+질적(위반 감점). 2회 실시, 합계가 높은 회차를 채택. 입력 즉시 저장되며 학생에게는 보이지 않습니다.</span>
+        <span class="hint">30초 드리블·슛 — 양적(성공 개수)+질적(위반 감점). 2회 실시, 합계가 높은 회차를 채택. 입력 즉시 저장되며 학생에게는 보이지 않습니다. 표에서 이름을 누르면 왼쪽에서 위반 항목까지 입력할 수 있습니다.</span>
         <button class="btn ghost sm" style="margin-left:auto" onclick="toggleBbCfg()">⚙ 기준 설정</button>
       </div>
       <div id="bbCfg" class="bcard" style="display:none;margin-bottom:14px">
@@ -168,6 +177,13 @@
 
       <div class="bbwrap">
         <div class="bcard" id="bbEntry">
+          <div class="timer" id="bbTimer">
+            <div class="t-disp" id="tDisp">30.0</div>
+            <div class="t-btns">
+              <button class="btn" id="tStart" onclick="timerToggle()">▶ 시작</button>
+              <button class="btn ghost" onclick="timerReset()">↺ 리셋</button>
+            </div>
+          </div>
           <h3>✍️ 한 명씩 입력</h3>
           <div class="bar" style="margin-bottom:6px">
             <button class="btn ghost sm" onclick="bbStep(-1)">◀</button>
@@ -862,6 +878,28 @@
   }
   async function resetBbCfg(){ if(!confirm('기준을 기본값(이전 대화 확정안)으로 되돌릴까요?')) return; try{ await db.collection('run10_settings').doc('basketball').set(BB_DEFAULT); show('bbCfgMsg','ok','기본값으로'); }catch(e){ show('bbCfgMsg','err',e.message); } }
 
+  /* 30초 타이머 */
+  const TM={ dur:30, left:30, run:false, t0:0, raf:null, ctx:null, beeped:{} };
+  function beep(freq, ms, vol){ try{ TM.ctx=TM.ctx||new (window.AudioContext||window.webkitAudioContext)(); const o=TM.ctx.createOscillator(), g=TM.ctx.createGain(); o.type='square'; o.frequency.value=freq; g.gain.value=vol||0.15; o.connect(g); g.connect(TM.ctx.destination); o.start(); o.stop(TM.ctx.currentTime+ms/1000); }catch(e){} }
+  function timerDraw(){ const d=$('tDisp'); d.textContent=TM.left.toFixed(1); d.className='t-disp'+(TM.left<=0?' end':TM.left<=5?' warn':''); }
+  function timerTick(){
+    if(!TM.run) return;
+    TM.left=Math.max(0, TM.dur-(performance.now()-TM.t0)/1000);
+    const s=Math.ceil(TM.left);
+    if(s<=5 && s>0 && !TM.beeped[s]){ TM.beeped[s]=1; beep(880,120); }
+    if(s===10 && !TM.beeped[10]){ TM.beeped[10]=1; beep(660,150); }
+    timerDraw();
+    if(TM.left<=0){ TM.run=false; beep(1200,700,0.25); $('tStart').textContent='▶ 시작'; $('bbTimer').classList.remove('running'); return; }
+    TM.raf=requestAnimationFrame(timerTick);
+  }
+  function timerToggle(){
+    if(TM.run){ TM.run=false; cancelAnimationFrame(TM.raf); $('tStart').textContent='▶ 계속'; $('bbTimer').classList.remove('running'); return; }
+    if(TM.left<=0) TM.left=TM.dur;
+    TM.t0=performance.now()-(TM.dur-TM.left)*1000; TM.run=true; TM.beeped={}; beep(523,120);
+    $('tStart').textContent='⏸ 정지'; $('bbTimer').classList.add('running'); timerTick();
+  }
+  function timerReset(){ TM.run=false; cancelAnimationFrame(TM.raf); TM.left=TM.dur; TM.beeped={}; $('tStart').textContent='▶ 시작'; $('bbTimer').classList.remove('running'); timerDraw(); }
+
   function bbList(){ return filtered(); }
   function renderBb(){ if(!$('bbTableBox')) return; renderBbEntry(); renderBbTable(); }
   function setBbRound(r){ BB.round=r; $('bbR1').classList.toggle('on',r===1); $('bbR2').classList.toggle('on',r===2); renderBbEntry(); }
@@ -888,16 +926,14 @@
     const done=list.filter(s=>{ const f=bbFinal(D.bb[s.id],s.sex); return f.status==='완료'||f.status==='미응시'; }).length;
     const half=list.filter(s=>bbFinal(D.bb[s.id],s.sex).status==='1회').length;
     $('bbSummary').textContent='완료 '+done+' · 1회만 '+half+' · 미입력 '+(list.length-done-half)+' / '+list.length+'명';
-    const V=BB_CFG.viol;
-    const vh=r=>V.map(v=>'<th style="font-size:11px;font-weight:600;color:var(--sub)">'+esc(v).slice(0,3)+'</th>').join('');
-    let h='<table><thead><tr><th class="stick l">학생</th><th>성별</th>'+[1,2].map(r=>'<th>'+r+'차 개수</th>'+vh(r)+'<th>'+r+'차 합계</th>').join('')+'<th>최종</th><th>채택</th><th>메모</th></tr></thead><tbody>';
+    let h='<table><thead><tr><th class="l">학생</th><th>성별</th><th>1차<br><span class="hint">개수·위반·합계</span></th><th>2차<br><span class="hint">개수·위반·합계</span></th><th>최종</th><th class="l">메모</th></tr></thead><tbody>';
     list.forEach(s=>{
       const d=bbDoc(s.id); const f=bbFinal(d,s.sex);
       if(onlyMiss && (f.status==='완료'||f.status==='미응시')) return;
-      h+='<tr'+(f.status==='미입력'?' class="low"':'')+'><td class="stick l"><a href="#" onclick="$(\'bbStudent\').value=\''+s.id+'\';setBbRound(1);return false" style="color:inherit;text-decoration:none">'+s.grade+'-'+s.cls+' <b>'+esc(s.name)+'</b> <span class="hint">'+s.id+'</span></a></td><td>'+esc(s.sex)+'</td>';
-      [1,2].forEach(rn=>{ const r=Object.assign({made:null,v:{}}, d['r'+rn]); const rs=bbRoundScore(r,s.sex);
-        h+='<td><input type="number" class="bbin" value="'+(r.made==null?'':r.made)+'" onchange="bbSetMade(\''+s.id+'\','+rn+',this.value)"></td>'+V.map(v=>'<td><input type="number" class="bbv" value="'+(Number((r.v||{})[v])||'')+'" placeholder="0" onchange="bbSetViol(\''+s.id+'\','+rn+',\''+esc(v)+'\',this.value)"></td>').join('')+'<td'+(f.which===rn&&f.status!=='미응시'?' class="best"':'')+'>'+(rs?rs.total+'<div class="hint">'+rs.grade+' '+rs.quant+'+'+rs.qual+'</div>':'')+'</td>'; });
-      h+='<td><b>'+(f.status==='미입력'?'':f.total)+'</b>'+(f.status==='미응시'?'<div class="hint">미응시</div>':'')+'</td><td>'+(f.which&&f.status!=='미응시'?f.which+'차':'')+'</td><td><input class="memo" value="'+esc(d.memo||'')+'" onchange="bbSetMemo(\''+s.id+'\',this.value)"></td></tr>';
+      h+='<tr'+(f.status==='미입력'?' class="low"':'')+'><td class="l"><a href="#" onclick="$(\'bbStudent\').value=\''+s.id+'\';setBbRound(1);window.scrollTo({top:$(\'bbEntry\').offsetTop-8,behavior:\'smooth\'});return false" style="color:inherit;text-decoration:none"><b>'+esc(s.name)+'</b> <span class="hint">'+s.id+'</span></a></td><td>'+esc(s.sex)+'</td>';
+      [1,2].forEach(rn=>{ const r=Object.assign({made:null,v:{}}, d['r'+rn]); const rs=bbRoundScore(r,s.sex); const vn=bbViolCount(r);
+        h+='<td'+(f.which===rn&&f.status!=='미응시'?' class="best"':'')+'><div style="display:flex;align-items:center;justify-content:center;gap:6px"><input type="number" class="bbin" value="'+(r.made==null?'':r.made)+'" onchange="bbSetMade(\''+s.id+'\','+rn+',this.value)"><span class="vb'+(vn?'':' z')+'" title="위반 '+vn+'">✗'+vn+'</span><b style="min-width:24px;text-align:right">'+(rs?rs.total:'')+'</b></div>'+(rs?'<div class="hint">'+rs.grade+' '+rs.quant+'+'+rs.qual+'</div>':'')+'</td>'; });
+      h+='<td><b style="font-size:15px">'+(f.status==='미입력'?'':f.total)+'</b>'+(f.status==='미응시'?'<div class="hint">미응시</div>':(f.which?'<div class="hint">'+f.which+'차</div>':''))+'</td><td class="l"><input class="memo" style="width:100%;min-width:80px" value="'+esc(d.memo||'')+'" onchange="bbSetMemo(\''+s.id+'\',this.value)"></td></tr>';
     });
     $('bbTableBox').innerHTML=h+'</tbody></table>';
   }
