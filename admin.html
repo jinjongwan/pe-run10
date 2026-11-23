@@ -889,9 +889,6 @@
   function timerTick(){
     if(!TM.run) return;
     TM.left=Math.max(0, TM.dur-(performance.now()-TM.t0)/1000);
-    const s=Math.ceil(TM.left);
-    if(s<=5 && s>0 && !TM.beeped[s]){ TM.beeped[s]=1; beep(880,120); }
-    if(s===10 && !TM.beeped[10]){ TM.beeped[10]=1; beep(660,150); }
     timerDraw();
     if(TM.left<=0){ TM.run=false; beep(1200,700,0.25); $('tStart').textContent='▶ 시작'; $('bbTimer').classList.remove('running'); return; }
     TM.raf=requestAnimationFrame(timerTick);
