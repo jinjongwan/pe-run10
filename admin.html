@@ -57,6 +57,25 @@
   .drop input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media (max-width:800px){.grid2{grid-template-columns:1fr}}
   code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:12px}
+  .seg{display:flex;border:1.5px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg button{flex:1;padding:8px;border:0;background:#fff;font-weight:700;color:var(--sub);cursor:pointer}
+  .seg button.on{background:var(--pri);color:#fff}
+  .step{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}
+  .step:last-child{border-bottom:0}
+  .step .lb{font-weight:700;font-size:14px} .step .lb small{color:var(--sub);font-weight:500;margin-left:6px}
+  .step .ctl{display:flex;align-items:center;gap:6px}
+  .step .ctl button{width:44px;height:40px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:20px;font-weight:800;cursor:pointer;color:#374151}
+  .step .ctl button:active{background:#eef2ff}
+  .step .ctl .n{width:44px;text-align:center;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+  .step.big .ctl button{width:56px;height:48px;font-size:24px;background:var(--soft);border-color:#c7d2fe;color:var(--pri)} .step.big .ctl .n{font-size:30px;color:var(--pri)}
+  .bbwrap{display:grid;grid-template-columns:360px minmax(0,1fr);gap:14px} .bbwrap>*{min-width:0} @media (max-width:900px){.bbwrap{grid-template-columns:minmax(0,1fr)}}
+  #pane-bb .bar{min-width:0} #bbEntry .seg{min-width:120px}
+  .bbscore{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+  .bbscore div{background:var(--soft);border-radius:10px;padding:8px 6px;text-align:center;min-width:0} .bbscore .k{font-size:11px;color:var(--sub);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .bbscore .v{font-size:20px;font-weight:800;color:var(--pri)}
+  .bbscore div.tot{background:#1d4ed8} .bbscore div.tot .k{color:#dbeafe} .bbscore div.tot .v{color:#fff}
+  .bbin{width:46px;padding:5px 4px;text-align:center;font-size:13px}
+  .bbv{width:36px;padding:5px 2px;text-align:center;font-size:12.5px}
+  td.best{background:#ecfdf5;font-weight:800}
   /* ── 순위·통계 ── */
   .bgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
   .bcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
@@ -122,6 +141,54 @@
       <button id="tab-roster" onclick="tab('roster')">👥 명부 관리</button>
       <button id="tab-board" onclick="tab('board')">🏆 순위·통계</button>
       <button id="tab-pod" onclick="tab('pod')">🎙 팟캐스트 <span class="badge" id="podBadge">0</span></button>
+      <button id="tab-bb" onclick="tab('bb')">🏀 농구 실기평가</button>
+    </div>
+
+    <div class="card" id="pane-bb" style="display:none">
+      <div class="bar">
+        <span class="hint">30초 드리블·슛 — 양적(성공 개수)+질적(위반 감점). 2회 실시, 합계가 높은 회차를 채택. 입력 즉시 저장되며 학생에게는 보이지 않습니다.</span>
+        <button class="btn ghost sm" style="margin-left:auto" onclick="toggleBbCfg()">⚙ 기준 설정</button>
+      </div>
+      <div id="bbCfg" class="bcard" style="display:none;margin-bottom:14px">
+        <h3>⚙ 평가 기준 (수정하면 전체 점수가 다시 계산됩니다)</h3>
+        <div class="grid2">
+          <div>
+            <div class="hint" style="margin-bottom:6px">양적 평가 — 등급별 <b>최소 성공 개수</b> (이상)</div>
+            <table style="width:auto"><thead><tr><th>등급</th><th>남</th><th>여</th><th>점수</th></tr></thead><tbody id="bbCfgRows"></tbody></table>
+            <div class="hint" style="margin-top:6px">E등급은 하한 없음 (그 아래 전부)</div>
+          </div>
+          <div>
+            <div class="bar"><label>질적 만점 <input type="number" id="cfgQualMax" style="width:70px"></label><label>위반 1회당 감점 <input type="number" id="cfgPenalty" style="width:70px"></label></div>
+            <div class="bar"><label>미응시·결시 점수 <input type="number" id="cfgAbsent" style="width:70px"></label></div>
+            <div class="bar"><label style="flex:1">위반 항목 (쉼표로 구분) <input type="text" id="cfgViol" style="width:100%"></label></div>
+            <div class="bar"><button class="btn" onclick="saveBbCfg()">기준 저장</button><button class="btn ghost" onclick="resetBbCfg()">기본값으로</button><span class="msg" id="bbCfgMsg" style="margin:0"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bbwrap">
+        <div class="bcard" id="bbEntry">
+          <h3>✍️ 한 명씩 입력</h3>
+          <div class="bar" style="margin-bottom:6px">
+            <button class="btn ghost sm" onclick="bbStep(-1)">◀</button>
+            <select id="bbStudent" onchange="renderBbEntry()" style="flex:1;min-width:0"></select>
+            <button class="btn ghost sm" onclick="bbStep(1)">▶</button>
+          </div>
+          <div class="bar" style="margin-bottom:8px">
+            <div class="seg" style="flex:1"><button id="bbR1" class="on" onclick="setBbRound(1)">1차</button><button id="bbR2" onclick="setBbRound(2)">2차</button></div>
+            <label><input type="checkbox" id="bbAbsent" onchange="bbSetAbsent(this.checked)"> 미응시</label>
+          </div>
+          <div id="bbEntryBody"></div>
+        </div>
+        <div>
+          <div class="bar" style="margin-bottom:6px">
+            <span class="hint" id="bbSummary"></span>
+            <label style="margin-left:auto"><input type="checkbox" id="bbOnlyMissing" onchange="renderBbTable()"> 미입력만</label>
+          </div>
+          <div class="tbl" style="max-height:70vh" id="bbTableBox"></div>
+        </div>
+      </div>
+      <div class="msg" id="bbMsg"></div>
     </div>
 
     <div class="card" id="pane-pod" style="display:none">
@@ -268,7 +335,7 @@
   firebase.initializeApp(FB_CONFIG);
   const auth = firebase.auth(), db = firebase.firestore();
   const $ = id => document.getElementById(id);
-  let D = { students:[], records:[], dates:[], classes:[], pods:[] }, unsubS=null, unsubR=null, unsubP=null, rosterRows=null;
+  let D = { students:[], records:[], dates:[], classes:[], pods:[], bb:{} }, unsubS=null, unsubR=null, unsubP=null, unsubB=null, unsubC=null, rosterRows=null;
   function show(id,cls,t){ const m=$(id); m.className='msg '+cls; m.textContent=t; }
   function hide(id){ $(id).className='msg'; }
   function fmt(n){ return Number(n).toLocaleString(); }
@@ -293,7 +360,7 @@
   });
 
   function subscribe(){
-    if(unsubS) unsubS(); if(unsubR) unsubR(); if(unsubP) unsubP();
+    if(unsubS) unsubS(); if(unsubR) unsubR(); if(unsubP) unsubP(); if(unsubB) unsubB(); if(unsubC) unsubC();
     unsubS = db.collection(COL).onSnapshot(q=>{
       D.students=[]; q.forEach(d=>D.students.push(Object.assign({id:d.id}, d.data())));
       D.students.sort((a,b)=>(a.grade+'-'+a.cls+'-'+a.id).localeCompare(b.grade+'-'+b.cls+'-'+b.id));
@@ -305,6 +372,11 @@
       D.dates=[...new Set(D.records.map(r=>r.date))].sort();
       renderAll();
     }, e=>alert('기록 읽기 실패: '+e.message+'\n(처음이라면 Firestore 색인이 필요할 수 있습니다. 콘솔 메시지의 링크를 눌러 색인을 만드세요.)'));
+    unsubB = db.collectionGroup('assess').onSnapshot(q=>{
+      D.bb={}; q.forEach(d=>{ if(d.id==='basketball'){ const x=d.data(); D.bb[x.sid]=x; } });
+      renderBb();
+    }, e=>console.warn('실기평가 읽기 실패', e));
+    unsubC = db.collection('run10_settings').doc('basketball').onSnapshot(d=>{ BB_CFG = d.exists ? Object.assign({}, BB_DEFAULT, d.data()) : Object.assign({}, BB_DEFAULT); renderBbCfg(); renderBb(); }, e=>console.warn(e));
     unsubP = db.collectionGroup('podcasts').onSnapshot(q=>{
       D.pods=[]; q.forEach(d=>D.pods.push(Object.assign({path:d.ref.path,id:d.id}, d.data())));
       renderPod();
@@ -329,7 +401,7 @@
     D.students.forEach(s=>{ s.recs=(by[s.id]||[]).sort((a,b)=>a.date.localeCompare(b.date)); s.byDate={}; s.recs.forEach(r=>s.byDate[r.date]=r); s.rounds=s.recs.filter(r=>r.status!=='제외'); s.excl=s.recs.filter(r=>r.status==='제외'); s.stats=statsFor(s.recs); });
   }
   function filtered(){ const c=$('clsSel').value; return D.students.filter(s=>!c || (s.grade+'-'+s.cls)===c); }
-  function tab(t){ ['matrix','pending','summary','manual','roster','board','pod'].forEach(x=>{ $('pane-'+x).style.display=x===t?'block':'none'; $('tab-'+x).classList.toggle('on',x===t); }); }
+  function tab(t){ ['matrix','pending','summary','manual','roster','board','pod','bb'].forEach(x=>{ $('pane-'+x).style.display=x===t?'block':'none'; $('tab-'+x).classList.toggle('on',x===t); }); }
 
   function renderAll(){
     enrich();
@@ -341,7 +413,7 @@
     $('kFive').textContent=st.filter(s=>s.stats.count>=5).length;
     const wk=daysAgo(7); $('kTodayMiss').textContent=st.filter(s=>!s.recs.some(r=>r.date>=wk&&r.status!=='제외')).length;
     $('rosterCount').textContent='('+D.students.length+'명)';
-    renderMatrix(); renderPending(); renderSummary(); renderRoster(); renderBoard(); renderPod();
+    renderMatrix(); renderPending(); renderSummary(); renderRoster(); renderBoard(); renderPod(); renderBb();
   }
   function cell(r){
     if(!r) return '<span class="c-miss">·</span>';
@@ -729,6 +801,107 @@
     catch(e){ show('podMsg','err',e.message); }
   }
 
+  /* ---------- 농구 실기평가 ---------- */
+  const BB_DEFAULT = {
+    grades:['A','B','C','D','E'], scores:[30,25,20,15,10],
+    minM:[10,8,6,4,0], minF:[8,6,4,2,0],           // 등급별 최소 성공 개수 (남/여), E는 0
+    qualMax:20, penalty:5, absentScore:5,
+    viol:['트레블링','더블드리블','워킹','캐링더볼','기타']
+  };
+  let BB_CFG = Object.assign({}, BB_DEFAULT);
+  let BB = { sid:'', round:1, timers:{} };
+
+  function bbQuant(made, sex){
+    if(made==null||isNaN(made)) return null;
+    const mins = sex==='여' ? BB_CFG.minF : BB_CFG.minM;
+    for(let i=0;i<mins.length;i++){ if(made>=mins[i]) return {grade:BB_CFG.grades[i], score:BB_CFG.scores[i]}; }
+    return {grade:BB_CFG.grades[mins.length-1], score:BB_CFG.scores[mins.length-1]};
+  }
+  function bbViolCount(r){ return r&&r.v ? Object.values(r.v).reduce((a,b)=>a+(Number(b)||0),0) : 0; }
+  function bbRoundScore(r, sex){
+    if(!r || r.made==null || r.made==='') return null;
+    const q=bbQuant(Number(r.made), sex); const n=bbViolCount(r);
+    const qual=Math.max(0, BB_CFG.qualMax - n*BB_CFG.penalty);
+    return { made:Number(r.made), grade:q.grade, quant:q.score, viol:n, qual, total:q.score+qual };
+  }
+  function bbFinal(d, sex){
+    if(!d) return {status:'미입력'};
+    if(d.absent) return {status:'미응시', total:BB_CFG.absentScore};
+    const r1=bbRoundScore(d.r1,sex), r2=bbRoundScore(d.r2,sex);
+    if(!r1&&!r2) return {status:'미입력'};
+    let best=r1, which=1; if(r2 && (!r1 || r2.total>r1.total || (r2.total===r1.total && r2.made>r1.made))){ best=r2; which=2; }
+    return Object.assign({status:(r1&&r2)?'완료':'1회', which, r1, r2}, best);
+  }
+  function bbDoc(sid){ return D.bb[sid] || {sid, r1:{made:null,v:{}}, r2:{made:null,v:{}}, absent:false, memo:''}; }
+  function bbSave(sid, patch){
+    const cur=JSON.parse(JSON.stringify(bbDoc(sid))); Object.assign(cur, patch);
+    D.bb[sid]=cur; renderBb();
+    clearTimeout(BB.timers[sid]);
+    BB.timers[sid]=setTimeout(async()=>{
+      try{ await db.collection(COL).doc(sid).collection('assess').doc('basketball').set(Object.assign({}, cur, {sid, updatedAt: firebase.firestore.FieldValue.serverTimestamp()})); }
+      catch(e){ show('bbMsg','err','저장 실패('+sid+'): '+e.message); }
+    }, 500);
+  }
+  function bbSetMade(sid, round, val){ const d=bbDoc(sid); const r=Object.assign({made:null,v:{}}, d['r'+round]); r.made = (val===''||val==null) ? null : Math.max(0, Math.min(40, Math.round(Number(val)))); bbSave(sid, {['r'+round]:r}); }
+  function bbSetViol(sid, round, key, val){ const d=bbDoc(sid); const r=Object.assign({made:null,v:{}}, d['r'+round]); r.v=Object.assign({}, r.v); r.v[key]=Math.max(0, Math.min(20, Math.round(Number(val)||0))); bbSave(sid, {['r'+round]:r}); }
+  function bbSetAbsent(on){ if(!BB.sid) return; bbSave(BB.sid, {absent:!!on}); }
+  function bbSetMemo(sid, memo){ bbSave(sid, {memo}); }
+
+  function toggleBbCfg(){ const b=$('bbCfg'); b.style.display=b.style.display==='none'?'block':'none'; }
+  function renderBbCfg(){
+    if(!$('bbCfgRows')) return;
+    $('bbCfgRows').innerHTML=BB_CFG.grades.map((g,i)=>'<tr><td><b>'+g+'</b></td><td>'+(i===BB_CFG.grades.length-1?'—':'<input type="number" class="bbin" id="cfgM'+i+'" value="'+BB_CFG.minM[i]+'">')+'</td><td>'+(i===BB_CFG.grades.length-1?'—':'<input type="number" class="bbin" id="cfgF'+i+'" value="'+BB_CFG.minF[i]+'">')+'</td><td><input type="number" class="bbin" id="cfgS'+i+'" value="'+BB_CFG.scores[i]+'"></td></tr>').join('');
+    $('cfgQualMax').value=BB_CFG.qualMax; $('cfgPenalty').value=BB_CFG.penalty; $('cfgAbsent').value=BB_CFG.absentScore; $('cfgViol').value=BB_CFG.viol.join(', ');
+  }
+  async function saveBbCfg(){
+    const n=BB_CFG.grades.length;
+    const cfg={ grades:BB_CFG.grades, scores:[], minM:[], minF:[], qualMax:Number($('cfgQualMax').value)||20, penalty:Number($('cfgPenalty').value)||5, absentScore:Number($('cfgAbsent').value)||0, viol:$('cfgViol').value.split(',').map(x=>x.trim()).filter(Boolean) };
+    for(let i=0;i<n;i++){ cfg.scores.push(Number($('cfgS'+i).value)||0); cfg.minM.push(i===n-1?0:Number($('cfgM'+i).value)||0); cfg.minF.push(i===n-1?0:Number($('cfgF'+i).value)||0); }
+    if(!cfg.viol.length){ show('bbCfgMsg','err','위반 항목을 1개 이상 넣으세요.'); return; }
+    try{ await db.collection('run10_settings').doc('basketball').set(cfg); show('bbCfgMsg','ok','저장됨'); }catch(e){ show('bbCfgMsg','err',e.message); }
+  }
+  async function resetBbCfg(){ if(!confirm('기준을 기본값(이전 대화 확정안)으로 되돌릴까요?')) return; try{ await db.collection('run10_settings').doc('basketball').set(BB_DEFAULT); show('bbCfgMsg','ok','기본값으로'); }catch(e){ show('bbCfgMsg','err',e.message); } }
+
+  function bbList(){ return filtered(); }
+  function renderBb(){ if(!$('bbTableBox')) return; renderBbEntry(); renderBbTable(); }
+  function setBbRound(r){ BB.round=r; $('bbR1').classList.toggle('on',r===1); $('bbR2').classList.toggle('on',r===2); renderBbEntry(); }
+  function bbStep(d){ const sel=$('bbStudent'); const i=sel.selectedIndex+d; if(i>=0&&i<sel.options.length){ sel.selectedIndex=i; BB.sid=sel.value; BB.round=1; setBbRound(1); } }
+  function renderBbEntry(){
+    const sel=$('bbStudent'); const list=bbList();
+    const cur=sel.value;
+    sel.innerHTML=list.map(s=>{ const f=bbFinal(D.bb[s.id], s.sex); const mark=f.status==='완료'?'✓ ':f.status==='1회'?'½ ':f.status==='미응시'?'✗ ':''; return '<option value="'+s.id+'">'+mark+s.grade+'-'+s.cls+' '+esc(s.name)+' ('+s.id+')</option>'; }).join('');
+    if([...sel.options].some(o=>o.value===cur)) sel.value=cur; else if(list.length) sel.selectedIndex=0;
+    BB.sid=sel.value||''; const s=list.find(x=>x.id===BB.sid);
+    if(!s){ $('bbEntryBody').innerHTML='<p class="hint">명부를 먼저 등록하세요.</p>'; return; }
+    const d=bbDoc(s.id); const r=Object.assign({made:null,v:{}}, d['r'+BB.round]);
+    $('bbAbsent').checked=!!d.absent;
+    const rs=bbRoundScore(r, s.sex); const f=bbFinal(d, s.sex);
+    let h='<div class="step big"><div class="lb">🏀 성공 개수<small>'+s.sex+' · 30초</small></div><div class="ctl"><button onclick="bbSetMade(\''+s.id+'\','+BB.round+','+((Number(r.made)||0)-1)+')">−</button><div class="n">'+(r.made==null?'·':r.made)+'</div><button onclick="bbSetMade(\''+s.id+'\','+BB.round+','+((Number(r.made)||0)+1)+')">＋</button></div></div>';
+    BB_CFG.viol.forEach((v,i)=>{ const c=Number((r.v||{})[v])||0; h+='<div class="step"><div class="lb">'+esc(v)+'</div><div class="ctl"><button onclick="bbSetViol(\''+s.id+'\','+BB.round+',\''+esc(v)+'\','+(c-1)+')">−</button><div class="n" style="color:'+(c?'var(--bad)':'inherit')+'">'+c+'</div><button onclick="bbSetViol(\''+s.id+'\','+BB.round+',\''+esc(v)+'\','+(c+1)+')">＋</button></div></div>'; });
+    h+='<div class="bbscore"><div><div class="k">양적 '+(rs?rs.grade:'')+'</div><div class="v">'+(rs?rs.quant:'·')+'</div></div><div><div class="k">질적·위반 '+(rs?rs.viol:0)+'</div><div class="v">'+(rs?rs.qual:'·')+'</div></div><div class="tot"><div class="k">'+BB.round+'차 합계</div><div class="v">'+(rs?rs.total:'·')+'</div></div></div>';
+    h+='<div class="hint" style="margin-top:8px">최종: '+(f.status==='미입력'?'미입력':f.status==='미응시'?'미응시 '+f.total+'점':'<b>'+f.total+'점</b> ('+f.which+'차 채택 · '+f.made+'개 '+f.grade+' · 위반 '+f.viol+')')+'</div>';
+    h+='<input type="text" class="memo" style="width:100%;margin-top:8px" placeholder="메모 (선택)" value="'+esc(d.memo||'')+'" onchange="bbSetMemo(\''+s.id+'\',this.value)">';
+    $('bbEntryBody').innerHTML=h;
+  }
+  function renderBbTable(){
+    const list=bbList(); const onlyMiss=$('bbOnlyMissing').checked;
+    const done=list.filter(s=>{ const f=bbFinal(D.bb[s.id],s.sex); return f.status==='완료'||f.status==='미응시'; }).length;
+    const half=list.filter(s=>bbFinal(D.bb[s.id],s.sex).status==='1회').length;
+    $('bbSummary').textContent='완료 '+done+' · 1회만 '+half+' · 미입력 '+(list.length-done-half)+' / '+list.length+'명';
+    const V=BB_CFG.viol;
+    const vh=r=>V.map(v=>'<th style="font-size:11px;font-weight:600;color:var(--sub)">'+esc(v).slice(0,3)+'</th>').join('');
+    let h='<table><thead><tr><th class="stick l">학생</th><th>성별</th>'+[1,2].map(r=>'<th>'+r+'차 개수</th>'+vh(r)+'<th>'+r+'차 합계</th>').join('')+'<th>최종</th><th>채택</th><th>메모</th></tr></thead><tbody>';
+    list.forEach(s=>{
+      const d=bbDoc(s.id); const f=bbFinal(d,s.sex);
+      if(onlyMiss && (f.status==='완료'||f.status==='미응시')) return;
+      h+='<tr'+(f.status==='미입력'?' class="low"':'')+'><td class="stick l"><a href="#" onclick="$(\'bbStudent\').value=\''+s.id+'\';setBbRound(1);return false" style="color:inherit;text-decoration:none">'+s.grade+'-'+s.cls+' <b>'+esc(s.name)+'</b> <span class="hint">'+s.id+'</span></a></td><td>'+esc(s.sex)+'</td>';
+      [1,2].forEach(rn=>{ const r=Object.assign({made:null,v:{}}, d['r'+rn]); const rs=bbRoundScore(r,s.sex);
+        h+='<td><input type="number" class="bbin" value="'+(r.made==null?'':r.made)+'" onchange="bbSetMade(\''+s.id+'\','+rn+',this.value)"></td>'+V.map(v=>'<td><input type="number" class="bbv" value="'+(Number((r.v||{})[v])||'')+'" placeholder="0" onchange="bbSetViol(\''+s.id+'\','+rn+',\''+esc(v)+'\',this.value)"></td>').join('')+'<td'+(f.which===rn&&f.status!=='미응시'?' class="best"':'')+'>'+(rs?rs.total+'<div class="hint">'+rs.grade+' '+rs.quant+'+'+rs.qual+'</div>':'')+'</td>'; });
+      h+='<td><b>'+(f.status==='미입력'?'':f.total)+'</b>'+(f.status==='미응시'?'<div class="hint">미응시</div>':'')+'</td><td>'+(f.which&&f.status!=='미응시'?f.which+'차':'')+'</td><td><input class="memo" value="'+esc(d.memo||'')+'" onchange="bbSetMemo(\''+s.id+'\',this.value)"></td></tr>';
+    });
+    $('bbTableBox').innerHTML=h+'</tbody></table>';
+  }
+
   /* ---------- 엑셀 내보내기 ---------- */
   function exportXlsx(){
     enrich();
@@ -747,6 +920,13 @@
       const pod=[['학번','이름','학년','반','제출물','상태','메모','제출시각','음원 링크','대본(텍스트)','대본 파일 링크']];
       D.pods.slice().sort((a,b)=>(a.grade+'-'+a.cls+a.sid).localeCompare(b.grade+'-'+b.cls+b.sid)).forEach(p=>pod.push([p.sid,p.name,p.grade,p.cls,p.title,p.status,p.memo||'',p.submittedAt&&p.submittedAt.toDate?p.submittedAt.toDate().toLocaleString('ko-KR'):'',p.audioUrl,p.scriptText||'',p.scriptUrl||'']));
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pod), '팟캐스트');
+    }
+    if(Object.keys(D.bb).length){
+      const V=BB_CFG.viol;
+      const bb=[['학번','이름','학년','반','성별'].concat([1,2].flatMap(r=>[r+'차 개수'].concat(V.map(v=>r+'차 '+v)).concat([r+'차 등급',r+'차 양적',r+'차 질적',r+'차 합계']))).concat(['채택 회차','최종 점수','상태','메모'])];
+      D.students.forEach(s=>{ const d=bbDoc(s.id); const f=bbFinal(d,s.sex);
+        bb.push([s.id,s.name,s.grade,s.cls,s.sex].concat([1,2].flatMap(rn=>{ const r=Object.assign({made:null,v:{}}, d['r'+rn]); const rs=bbRoundScore(r,s.sex); return [r.made==null?'':r.made].concat(V.map(v=>Number((r.v||{})[v])||0)).concat(rs?[rs.grade,rs.quant,rs.qual,rs.total]:['','','','']); })).concat([f.which&&f.status!=='미응시'?f.which:'', f.status==='미입력'?'':f.total, f.status, d.memo||''])); });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bb), '농구실기');
     }
     XLSX.writeFile(wb, '10분달리기_'+todayKST()+'.xlsx');
   }
