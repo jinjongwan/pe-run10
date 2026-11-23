@@ -200,8 +200,12 @@
           <div class="bar" style="margin-bottom:6px">
             <span class="hint" id="bbSummary"></span>
             <label style="margin-left:auto"><input type="checkbox" id="bbOnlyMissing" onchange="renderBbTable()"> 미입력만</label>
+            <button class="btn ghost sm" id="bbHideBtn" onclick="bbToggleHide()">🙈 표 가리기</button>
           </div>
-          <div class="tbl" style="max-height:70vh" id="bbTableBox"></div>
+          <div style="position:relative">
+            <div class="tbl" style="max-height:70vh" id="bbTableBox"></div>
+            <div id="bbCover" onclick="bbToggleHide()" style="display:none;position:absolute;inset:0;background:rgba(244,246,251,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:10px;cursor:pointer;align-items:center;justify-content:center;font-weight:700;color:var(--sub)">🙈 표를 가렸습니다 — 누르면 다시 보입니다</div>
+          </div>
         </div>
       </div>
       <div class="msg" id="bbMsg"></div>
@@ -921,18 +925,20 @@
     h+='<input type="text" class="memo" style="width:100%;margin-top:8px" placeholder="메모 (선택)" value="'+esc(d.memo||'')+'" onchange="bbSetMemo(\''+s.id+'\',this.value)">';
     $('bbEntryBody').innerHTML=h;
   }
+  function bbToggleHide(){ const on=$('bbCover').style.display==='none'; $('bbCover').style.display=on?'flex':'none'; $('bbHideBtn').textContent=on?'👁 표 보기':'🙈 표 가리기'; $('bbTableBox').style.filter=on?'blur(6px)':''; $('bbTableBox').style.pointerEvents=on?'none':''; }
   function renderBbTable(){
     const list=bbList(); const onlyMiss=$('bbOnlyMissing').checked;
     const done=list.filter(s=>{ const f=bbFinal(D.bb[s.id],s.sex); return f.status==='완료'||f.status==='미응시'; }).length;
     const half=list.filter(s=>bbFinal(D.bb[s.id],s.sex).status==='1회').length;
     $('bbSummary').textContent='완료 '+done+' · 1회만 '+half+' · 미입력 '+(list.length-done-half)+' / '+list.length+'명';
-    let h='<table><thead><tr><th class="l">학생</th><th>성별</th><th>1차<br><span class="hint">개수·위반·합계</span></th><th>2차<br><span class="hint">개수·위반·합계</span></th><th>최종</th><th class="l">메모</th></tr></thead><tbody>';
+    let h='<table><thead><tr><th class="l">학생</th><th>성별</th><th>1차 개수</th><th>1차 감점</th><th>2차 개수</th><th>2차 감점</th><th>최종</th><th class="l">메모</th></tr></thead><tbody>';
     list.forEach(s=>{
       const d=bbDoc(s.id); const f=bbFinal(d,s.sex);
       if(onlyMiss && (f.status==='완료'||f.status==='미응시')) return;
       h+='<tr'+(f.status==='미입력'?' class="low"':'')+'><td class="l"><a href="#" onclick="$(\'bbStudent\').value=\''+s.id+'\';setBbRound(1);window.scrollTo({top:$(\'bbEntry\').offsetTop-8,behavior:\'smooth\'});return false" style="color:inherit;text-decoration:none"><b>'+esc(s.name)+'</b> <span class="hint">'+s.id+'</span></a></td><td>'+esc(s.sex)+'</td>';
-      [1,2].forEach(rn=>{ const r=Object.assign({made:null,v:{}}, d['r'+rn]); const rs=bbRoundScore(r,s.sex); const vn=bbViolCount(r);
-        h+='<td'+(f.which===rn&&f.status!=='미응시'?' class="best"':'')+'><div style="display:flex;align-items:center;justify-content:center;gap:6px"><input type="number" class="bbin" value="'+(r.made==null?'':r.made)+'" onchange="bbSetMade(\''+s.id+'\','+rn+',this.value)"><span class="vb'+(vn?'':' z')+'" title="위반 '+vn+'">✗'+vn+'</span><b style="min-width:24px;text-align:right">'+(rs?rs.total:'')+'</b></div>'+(rs?'<div class="hint">'+rs.grade+' '+rs.quant+'+'+rs.qual+'</div>':'')+'</td>'; });
+      [1,2].forEach(rn=>{ const r=Object.assign({made:null,v:{}}, d['r'+rn]); const rs=bbRoundScore(r,s.sex); const vn=bbViolCount(r); const pen=Math.min(BB_CFG.qualMax, vn*BB_CFG.penalty); const best=f.which===rn&&f.status!=='미응시';
+        h+='<td'+(best?' class="best"':'')+'><input type="number" class="bbin" value="'+(r.made==null?'':r.made)+'" onchange="bbSetMade(\''+s.id+'\','+rn+',this.value)">'+(rs?'<div class="hint">'+rs.grade+' '+rs.quant+'점</div>':'')+'</td>';
+        h+='<td'+(best?' class="best"':'')+'><span class="vb'+(vn?'':' z')+'">'+(vn?'−'+pen:'0')+'</span>'+(vn?'<div class="hint">위반 '+vn+'</div>':'')+'</td>'; });
       h+='<td><b style="font-size:15px">'+(f.status==='미입력'?'':f.total)+'</b>'+(f.status==='미응시'?'<div class="hint">미응시</div>':(f.which?'<div class="hint">'+f.which+'차</div>':''))+'</td><td class="l"><input class="memo" style="width:100%;min-width:80px" value="'+esc(d.memo||'')+'" onchange="bbSetMemo(\''+s.id+'\',this.value)"></td></tr>';
     });
     $('bbTableBox').innerHTML=h+'</tbody></table>';
